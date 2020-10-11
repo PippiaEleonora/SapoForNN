@@ -122,9 +122,9 @@ class Krelu:
         cA = (A.__array_interface__['data'][0]
               + np.arange(A.shape[0]) * A.strides[0]).astype(np.uintp)
 
-        n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
+        #n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
 
-        print(A[0:n_cons][:])
+        #print(A[0:n_cons][:])
 
         # We get orthant points using exact precision, because it allows to guarantee soundness of the algorithm.
         cdd_hrepr = cdd.Matrix(cdd_hrepr, number_type='fraction')
