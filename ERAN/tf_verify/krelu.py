@@ -72,59 +72,60 @@ class Krelu:
         # Ax <= b with  A = mycons[1:3][i]   b = mycons[0][i]
         dim = input_cons.shape
         n_var = dim[1]-1
-        if n_var>1:
-            n_dir = dim[0]//2
-            n_bundle = n_var
-    #WARNING MORE BUNDLE THAN I EXPECTED
-            A = np.empty([dim[0], n_var + 1], dtype=np.double)
-            L = np.zeros([n_dir, n_var], dtype=np.double)
-            T = np.zeros([n_bundle, n_var], dtype=np.double)
-            offp = np.zeros(n_dir, dtype=np.double)
-            offm = np.zeros(n_dir, dtype=np.double)
-            if n_var==2:
-                visit = np.zeros([n_var, n_var], dtype=np.bool)
-                count = 0
-                for i in range(dim[0]):
-                    if not visit[int(input_cons[i][1]+1)][int(input_cons[i][2]+1)]:
-                        L[count][:] = input_cons[i][1:n_var+1]
-                        count = count + 1
-                        visit[int(input_cons[i][1]+1)][int(input_cons[i][2]+1)] = 1
-                        visit[int(-input_cons[i][1]+1)][int(-input_cons[i][2]+1)] = 1
-            else:
-                visit = np.zeros([n_var, n_var, n_var], dtype=np.bool)
-                visitID = np.zeros([n_var, n_var, n_var], dtype=np.int)
-                count = 0
-                for i in range(dim[0]):
-                    if not visit[int(input_cons[i][1] + 1)][int(input_cons[i][2] + 1)][int(input_cons[i][3] + 1)]:
-                        L[count][:] = input_cons[i][1:n_var+1]
-                        offp = input_cons[i][0]
-                        count = count + 1
-                        visit[int(input_cons[i][1] + 1)][int(input_cons[i][2] + 1)][int(input_cons[i][3] + 1)] = 1
-                        visit[int(-input_cons[i][1] + 1)][int(-input_cons[i][2] + 1)][int(-input_cons[i][3] + 1)] = 1
-                        visitID[int(input_cons[i][1] + 1)][int(input_cons[i][2] + 1)][int(input_cons[i][3] + 1)] = i
-                        visitID[int(-input_cons[i][1] + 1)][int(-input_cons[i][2] + 1)][int(-input_cons[i][3] + 1)] = i
-                    else:
-                        index = visitID[int(input_cons[i][1] + 1)][int(input_cons[i][2] + 1)][int(input_cons[i][3] + 1)]
-                        offm[index] = input_cons[i][0]
-        T = np.array([[0, 1, 2], [3, 4, 5], [6, 7, 8]], dtype=np.double)
-        L2 = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1]], dtype=np.double)
-        T2 = np.array([[0, 1, 2], [3, 4, 5]], dtype=np.double)
-        offp2 = np.array([1, 1, 3, 1, 2, 3], dtype=np.double)
-        offm2 = np.array([1, 0, -0.5, 0.5, -0.5, -1], dtype=np.double)
+        if 0:
+            if n_var>1:
+                n_dir = dim[0]//2
+                n_bundle = n_var
+        #WARNING MORE BUNDLE THAN I EXPECTED
+                A = np.empty([dim[0], n_var + 1], dtype=np.double)
+                L = np.zeros([n_dir, n_var], dtype=np.double)
+                T = np.zeros([n_bundle, n_var], dtype=np.double)
+                offp = np.zeros(n_dir, dtype=np.double)
+                offm = np.zeros(n_dir, dtype=np.double)
+                if n_var==2:
+                    visit = np.zeros([n_var, n_var], dtype=np.bool)
+                    count = 0
+                    for i in range(dim[0]):
+                        if not visit[int(input_cons[i][1]+1)][int(input_cons[i][2]+1)]:
+                            L[count][:] = input_cons[i][1:n_var+1]
+                            count = count + 1
+                            visit[int(input_cons[i][1]+1)][int(input_cons[i][2]+1)] = 1
+                            visit[int(-input_cons[i][1]+1)][int(-input_cons[i][2]+1)] = 1
+                else:
+                    visit = np.zeros([n_var, n_var, n_var], dtype=np.bool)
+                    visitID = np.zeros([n_var, n_var, n_var], dtype=np.int)
+                    count = 0
+                    for i in range(dim[0]):
+                        if not visit[int(input_cons[i][1] + 1)][int(input_cons[i][2] + 1)][int(input_cons[i][3] + 1)]:
+                            L[count][:] = input_cons[i][1:n_var+1]
+                            offp = input_cons[i][0]
+                            count = count + 1
+                            visit[int(input_cons[i][1] + 1)][int(input_cons[i][2] + 1)][int(input_cons[i][3] + 1)] = 1
+                            visit[int(-input_cons[i][1] + 1)][int(-input_cons[i][2] + 1)][int(-input_cons[i][3] + 1)] = 1
+                            visitID[int(input_cons[i][1] + 1)][int(input_cons[i][2] + 1)][int(input_cons[i][3] + 1)] = i
+                            visitID[int(-input_cons[i][1] + 1)][int(-input_cons[i][2] + 1)][int(-input_cons[i][3] + 1)] = i
+                        else:
+                            index = visitID[int(input_cons[i][1] + 1)][int(input_cons[i][2] + 1)][int(input_cons[i][3] + 1)]
+                            offm[index] = input_cons[i][0]
+            T = np.array([[0, 1, 2], [3, 4, 5], [6, 7, 8]], dtype=np.double)
+            L2 = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1]], dtype=np.double)
+            T2 = np.array([[0, 1, 2], [3, 4, 5]], dtype=np.double)
+            offp2 = np.array([1, 1, 3, 1, 2, 3], dtype=np.double)
+            offm2 = np.array([1, 0, -0.5, 0.5, -0.5, -1], dtype=np.double)
 
-        coffp = offp2.ctypes.data_as(POINTER(c_double))
-        coffm = offm2.ctypes.data_as(POINTER(c_double))
+            coffp = offp2.ctypes.data_as(POINTER(c_double))
+            coffm = offm2.ctypes.data_as(POINTER(c_double))
 
-        cL = (L2.__array_interface__['data'][0]
-              + np.arange(L2.shape[0]) * L2.strides[0]).astype(np.uintp)
-        cT = (T2.__array_interface__['data'][0]
-              + np.arange(T2.shape[0]) * T2.strides[0]).astype(np.uintp)
-        cA = (A.__array_interface__['data'][0]
-              + np.arange(A.shape[0]) * A.strides[0]).astype(np.uintp)
+            cL = (L2.__array_interface__['data'][0]
+                  + np.arange(L2.shape[0]) * L2.strides[0]).astype(np.uintp)
+            cT = (T2.__array_interface__['data'][0]
+                  + np.arange(T2.shape[0]) * T2.strides[0]).astype(np.uintp)
+            cA = (A.__array_interface__['data'][0]
+                  + np.arange(A.shape[0]) * A.strides[0]).astype(np.uintp)
 
-        #n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
+            #n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
 
-        #print(A[0:n_cons][:])
+            #print(A[0:n_cons][:])
 
         # We get orthant points using exact precision, because it allows to guarantee soundness of the algorithm.
         cdd_hrepr = cdd.Matrix(cdd_hrepr, number_type='fraction')
