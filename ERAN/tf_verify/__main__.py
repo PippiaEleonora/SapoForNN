@@ -1,8 +1,9 @@
 import sys
 import os
 cpu_affinity = os.sched_getaffinity(0)
-sys.path.insert(0, '../ELINA/python_interface/')
-sys.path.insert(0, '../deepg/code/')
+Eranfolder = '../../../../ERAN'
+sys.path.insert(0, Eranfolder+'/ELINA/python_interface/')
+sys.path.insert(0, Eranfolder+'/deepg/code/')
 import numpy as np
 from eran import ERAN
 from read_net_file import *
@@ -246,12 +247,12 @@ def acasxu_recursive(specLB, specUB, max_depth=10, depth=0):
 
 def get_tests(dataset, geometric):
     if geometric:
-        csvfile = open('../deepg/code/datasets/{}_test.csv'.format(dataset), 'r')
+        csvfile = open(Eranfolder+'/deepg/code/datasets/{}_test.csv'.format(dataset), 'r')
     else:
         if config.subset == None:
-            csvfile = open('../data/{}_test.csv'.format(dataset), 'r')
+            csvfile = open(Eranfolder+'/data/{}_test.csv'.format(dataset), 'r')
         else:
-            filename = '../data/'+ dataset+ '_test_' + config.subset + '.csv'
+            filename = Eranfolder+'/data/'+ dataset+ '_test_' + config.subset + '.csv'
             csvfile = open(filename, 'r')
     tests = csv.reader(csvfile, delimiter=',')
 

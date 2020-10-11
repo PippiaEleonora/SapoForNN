@@ -33,7 +33,7 @@ from ctypes import *
 import numpy.ctypeslib
 
 array_2d_double = np.ctypeslib.ndpointer(dtype=np.uintp, ndim=1, flags='C')
-sapolib = cdll.LoadLibrary("./libsapolib.so")
+sapolib = cdll.LoadLibrary("../../Sapo/libsapolib.so")
 sapolib.computeSapo.argtypes = [c_int, c_int, c_int, array_2d_double, array_2d_double, POINTER(c_double),
                                         POINTER(c_double), array_2d_double]
 sapolib.computeSapo.restype = int
