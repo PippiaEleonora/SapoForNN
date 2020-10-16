@@ -2,6 +2,7 @@ Neural Network Translator from MATLAB to ERAN format
 ===
 
 In this folder, we provide a script to translate Neural Networks saved as MATLAB structures into ERAN *tf* format. We have also added support for the translation of network objects (network structure) to ERAN tf format. 
+
 Files
 ---
 There is a script to load and translate the Matlab NNs. The folder *MATLAB_files* contains the NN models taken from NNV [repo](https://github.com/verivital/nnv). The folder *ERAN_files* contained the translated models.
