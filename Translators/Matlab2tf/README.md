@@ -26,6 +26,7 @@ There are models that they do not have their activation functions specified.
 
 - The `nn_tora_relu_tanh` contains 3 hidden layers with ReLU and the output layer has a tanh. Info [here](https://github.com/verivital/nnv/blob/master/code/nnv/examples/Submission/ARCH_COMP2020/benchmarks/Tora_Heterogeneous/Specifications.txt).
 - All the activation functions for the `nn_tora_sigmoid` are sigmoid. Info [here](https://github.com/verivital/nnv/blob/master/code/nnv/examples/Submission/ARCH_COMP2020/benchmarks/Tora_Heterogeneous/Specifications.txt).
+- The user can manually specify the activation functions via the `user_defined_activ` flag (lines 119-123) 
 
 MATLAB Models - Not only ReLU 
 ---

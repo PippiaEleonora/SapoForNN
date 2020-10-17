@@ -37,6 +37,9 @@ savePath=strcat('ERAN_files',filesep);
 
 str_NN=load(model_name);
 
+% if file name contains '.mat' ending, delete the extension.
+model_name=regexprep(model_name,'.mat','');
+
 % the models might have different structures. We look for the struct with
 % the field W.
 nn_object=0;
@@ -109,9 +112,9 @@ if ~nn_object
             activ{i}='relu';
         end
     end
-    
+    % https://github.com/verivital/nnv/blob/master/code/nnv/examples/Submission/ARCH_COMP2020/benchmarks/Tora_Heterogeneous/reachTora_sigmoid.m
     if strcmp(model_name,'nn_tora_sigmoid')
-        activ={'sigmoid','sigmoid','sigmoid','sigmoid'};
+        activ={'logsig','logsig','logsig','logsig'};
     elseif strcmp(model_name,'nn_tora_relu_tanh')
         activ={'relu','relu','relu','tanh'};
     end
@@ -158,13 +161,12 @@ for i=1:no_layers
         activ{i}='Tanh';
     elseif strcmp(activ{i},'linear') || strcmp(activ{i},'purelin')
         activ{i}='Affine';
-    elseif strcmp(activ{i},'sigmoid')
+    elseif strcmp(activ{i},'sigmoid') || strcmp(activ{i},'logsig')
         activ{i}='Sigmoid';
     end
 end
 
-% if file name contains '.mat' ending, delete the extension.
-model_name=regexprep(model_name,'.mat','');
+
 fileID = fopen(strcat(savePath,model_name,'.tf'),'w');
 for i_layer=1:no_layers
     %activation
