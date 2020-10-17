@@ -42,7 +42,7 @@ MATLAB Models - Not only ReLU
 
 4. `CartPolecontroller_0403_tanh`
 
-5. `Engine_Toy_Tansig_net` Note that this model is not currently supported as it employs a `net` object.
+5. `Engine_Toy_Tansig_net` it employs a `network` object.
 
 6. `ACASXU_run2a_2_4_batch_2000`
 7.  `mnist5x50`
