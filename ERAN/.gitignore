@@ -2,3 +2,4 @@
 /.idea/inspectionProfiles/*
 /tf_verify/.idea/*
 /tf_verify/filename.csv
+/tf_verify/__pycache__/*

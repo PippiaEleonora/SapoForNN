@@ -1087,7 +1087,7 @@ else:
 start=time.time()
 specLB=-1*np.ones(num_pixels,dtype="double")
 specUB=1*np.ones(num_pixels,dtype="double")
-label,nn,nlb_ERAN,nub_ERAN,_,_ = eran.analyze_box(specLB, specUB, domain, config.timeout_lp, config.timeout_milp, config.use_default_heuristic)#label=label, prop=prop)
+label,nn,nlb_ERAN,nub_ERAN,_,_ = eran.analyze_box(specLB, specUB, 'deeppoly', config.timeout_lp, config.timeout_milp, config.use_default_heuristic)#label=label, prop=prop)
 end=time.time()
 label,nn,nlb_SAPO,nub_SAPO,_,_ = eran.analyze_box(specLB, specUB, 'refinepoly', config.timeout_lp, config.timeout_milp, config.use_default_heuristic)#label=label, prop=prop)
 print("The total time is ",end-start, "seconds")

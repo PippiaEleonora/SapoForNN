@@ -71,36 +71,17 @@ extern "C" {
   int n_cons = Bout->getSize();
 
   for(int i=0; i<n_cons; i++){
-	A[i][0] = offp_out[i];
+	A[i][0] = offm_out[i];
 	for(int j=0; j<dim_sys; j++){
 		A[i][j+1] = L_out[i][j];
 	}
   }
   for(int i=0; i<n_cons; i++){
-	A[n_cons+i][0] = offm_out[i];
+	A[n_cons+i][0] = offp_out[i];
 	for(int j=0; j<dim_sys; j++){
 		A[n_cons+i][j+1] = -L_out[i][j];
 	}
   }
-
-  /*cout<<bp[0]<<endl;
-  cout<<"\n";
-  cout<<"FIGURE Hyperbolic Tangent"<<endl;
-
-  // Generate matlab script to plot flowpipe
-  char figTan[] = "plotFigureTan.m";
-  flowpipe->plotRegionToFile(figTan,'w');
-  // Set picture appearence
-  ofstream matlab_script;
-  matlab_script.open (figTan, std::ofstream::out | std::ofstream::app);
-  matlab_script<<"xlabel('x');\n";
-  matlab_script<<"ylabel('y');\n";
-  matlab_script<<"axis([-2 2 -2 2 -1 3]);\n";
-  // matlab_script<<"view([74 23]);\n";
-  matlab_script<<"grid on;";
-  matlab_script.close();
-  cout<<figTan<<" generated\n"<<endl;*/
-
 
   return 2*n_cons;
 	}
