@@ -13,7 +13,7 @@ Check that your ERAN folder has both the ELINA folder and the "data" folder insi
 You need to define the ERAN path
 ``cd ERAN/tf_verify``
 
-Open the '__main__.py' and define the variable 'Eranfolder', at line 4, with your already installed ERAN (wher you have ELINA, deepG etc.)
+Open the '\_\_main\__.py' and define the variable 'Eranfolder', at line 4, with your already installed ERAN (wher you have ELINA, deepG etc.)
 
 
 To compile the Sapo project:
