@@ -34,29 +34,28 @@ MATLAB Models - Not only ReLU
 >[NNV](https://github.com/verivital/nnv)
 
 
-1. `nn_tora_relu_tanh`
+1. `nn_tora_relu_tanh` (closed loop)
 
-2. `nn_tora_sigmoid`
+2. `nn_tora_sigmoid` (closed loop)
 
-3. `ACC_controller_3_20_tanh`
+3. `ACC_controller_3_20_tanh` (closed loop)
 
-4. `CartPolecontroller_0403_tanh`
+4. `CartPolecontroller_0403_tanh` (closed loop)
+5.  `mnist5x50` (only ReLU -- not closed loop)
 
-5. `Engine_Toy_Tansig_net` it employs a `network` object.
+>[CEX](https://github.com/nikos-kekatos/NNCS_matlab/tree/master/src)
 
-6. `ACASXU_run2a_2_4_batch_2000`
-7.  `mnist5x50`
-8. `good_controller` neural network object (from our work)
-9. `Engine_Toy_Tansig_net` neural network object (NNV)
+1. `good_controller` neural network object (from our work -- closed loop )
 
 ERAN Models -- Not only ReLU
 ---
 
 >[ERAN](https://github.com/eth-sri/eran)
 
-1. `ffnnSIGMOID__Point_6_500.pyt`
+1. `ffnnSIGMOID__Point_6_500.pyt` 6 layers, 500 neurons, 55Mb
 
-2. `ffnnTANH_Point_6_500.pyt`
+2. `ffnnTANH_Point_6_500.pyt` 6 layers, 500 neurons, 55Mb
+
 
 Validating the translation
 ---
@@ -67,6 +66,11 @@ cd SapoForNN/tf_verify
 python3 . --netname mnist5x50.tf --dataset mnist --domain deepzono
 ```
 - Run different examples without images
+  
+- Run acasxu and mnist from NNV
+	1. `Engine_Toy_Tansig_net` it employs a `network` object. It is a FF NN (not closed loop).
+
+	2. `ACASXU_run2a_2_4_batch_2000` (only ReLU -- not closed loop)
   
 To-DO
 ---
