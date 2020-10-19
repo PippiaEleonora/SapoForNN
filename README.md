@@ -11,17 +11,17 @@ To run the following project you need to install all the dependences of the [Sap
 
 Check that your ERAN folder has both the ELINA folder and the "data" folder inside.
 You need to define the ERAN path
-'''cd ERAN/tf_verify''
-Open the __main__.py and define the variable 'Eranfolder', at line 4, with your already installed ERAN (wher you have ELINA, deepG etc.)
+``cd ERAN/tf_verify``
+
+Open the '__main__.py' and define the variable 'Eranfolder', at line 4, with your already installed ERAN (wher you have ELINA, deepG etc.)
 
 
 To compile the Sapo project:
-'''cd Sapo
+``cd Sapo
 cmake -DBUILD_SHARED_LIBS=on
-make'''
+make``
 
 ## Example
 Run the first example
-'''
-python3 . --netname DATA/mnist_relu_3_50.tf --epsilon 0.1 --domain refinepoly --dataset mnist --sparse_n 3 --refine_neurons --num_test 1''
+`` python3 . --netname DATA/mnist_relu_3_50.tf --epsilon 0.1 --domain refinepoly --dataset mnist --sparse_n 3 --refine_neurons --num_test 1``
 
