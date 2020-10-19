@@ -78,7 +78,7 @@ def show_ascii_spec(lb, ub, n_rows, n_cols, n_channels):
         print('  |  ')
     print('==================================================================')
 
-
+'''
 def normalize(image, means, stds, dataset):
     # normalization taken out of the network
     if len(means) == len(image):
@@ -150,7 +150,7 @@ def denormalize(image, means, stds, dataset):
 
         for i in range(3072):
             image[i] = tmp[i]
-
+'''
 
 def model_predict(base, input):
     if is_onnx:
@@ -203,7 +203,7 @@ def print_progress(depth):
         progress += np.power(2.,-depth)
         sys.stdout.write('\r%.10f percent, %.02f s' % (100 * progress, time.time()-rec_start))
 
-
+'''
 def acasxu_recursive(specLB, specUB, max_depth=10, depth=0):
     hold,nn,nlb,nub,_,_ = eran.analyze_box(specLB, specUB, domain, config.timeout_lp, config.timeout_milp, config.use_default_heuristic, constraints)
     global failed_already
@@ -257,7 +257,7 @@ def get_tests(dataset, geometric):
     tests = csv.reader(csvfile, delimiter=',')
 
     return tests
-
+'''
 
 def init_domain(d):
     if d == 'refinezono':
@@ -274,9 +274,9 @@ parser.add_argument('--zonotope', type=str, default=config.zonotope, help='file 
 parser.add_argument('--subset', type=str, default=config.subset, help='suffix of the file to specify the subset of the test dataset to use')
 parser.add_argument('--target', type=str, default=config.target, help='file specify the targets for the attack')
 parser.add_argument('--epsfile', type=str, default=config.epsfile, help='file specify the epsilons for the L_oo attack')
-parser.add_argument('--specnumber', type=int, default=config.specnumber, help='the property number for the acasxu networks')
+#parser.add_argument('--specnumber', type=int, default=config.specnumber, help='the property number for the acasxu networks')
 parser.add_argument('--domain', type=str, default=config.domain, help='the domain name can be either deepzono, refinezono, deeppoly or refinepoly')
-parser.add_argument('--dataset', type=str, default=config.dataset, help='the dataset, can be either mnist, cifar10, acasxu, or fashion')
+#parser.add_argument('--dataset', type=str, default=config.dataset, help='the dataset, can be either mnist, cifar10, acasxu, or fashion')
 parser.add_argument('--complete', type=str2bool, default=config.complete,  help='flag specifying where to use complete verification or not')
 parser.add_argument('--timeout_lp', type=float, default=config.timeout_lp,  help='timeout for the LP solver')
 parser.add_argument('--timeout_milp', type=float, default=config.timeout_milp,  help='timeout for the MILP solver')
@@ -308,13 +308,13 @@ args = parser.parse_args()
 for k, v in vars(args).items():
     setattr(config, k, v)
 config.json = vars(args)
-
+'''
 if config.specnumber and not config.input_box and not config.output_constraints:
     config.input_box = '../data/acasxu/specs/acasxu_prop_' + str(config.specnumber) + '_input_prenormalized.txt'
     config.output_constraints = '../data/acasxu/specs/acasxu_prop_' + str(config.specnumber) + '_constraints.txt'
 
 assert config.netname, 'a network has to be provided for analysis.'
-
+'''
 #if len(sys.argv) < 4 or len(sys.argv) > 5:
 #    print('usage: python3.6 netname epsilon domain dataset')
 #    exit(1)
@@ -346,10 +346,10 @@ elif not config.geometric:
     assert domain in ['deepzono', 'refinezono', 'deeppoly', 'refinepoly'], "domain name can be either deepzono, refinezono, deeppoly or refinepoly"
 
 dataset = config.dataset
-
+'''
 if zonotope_bool==False:
    assert dataset in ['mnist', 'cifar10', 'acasxu', 'fashion'], "only mnist, cifar10, acasxu, and fashion datasets are supported"
-
+'''
 constraints = None
 if config.output_constraints:
     constraints = get_constraints_from_file(config.output_constraints)
@@ -358,12 +358,12 @@ mean = 0
 std = 0
 
 complete = (config.complete==True)
-
+'''
 if(dataset=='acasxu'):
     print("netname ", netname, " specnumber ", config.specnumber, " domain ", domain, " dataset ", dataset, "args complete ", config.complete, " complete ",complete, " timeout_lp ",config.timeout_lp)
 else:
     print("netname ", netname, " epsilon ", epsilon, " domain ", domain, " dataset ", dataset, "args complete ", config.complete, " complete ",complete, " timeout_lp ",config.timeout_lp)
-
+'''
 non_layer_operation_types = ['NoOp', 'Assign', 'Const', 'RestoreV2', 'SaveV2', 'PlaceholderWithDefault', 'IsVariableInitialized', 'Placeholder', 'Identity']
 
 sess = None
@@ -401,9 +401,10 @@ else:
     if is_onnx:
         model, is_conv = read_onnx_net(netname)
     else:
+        num_pixels = 784
         model, is_conv, means, stds = read_tensorflow_net(netname, num_pixels, is_trained_with_pytorch)
     eran = ERAN(model, is_onnx=is_onnx)
-
+'''
 if not is_trained_with_pytorch:
     if dataset == 'mnist' and not config.geometric:
         means = [0]
@@ -414,7 +415,7 @@ if not is_trained_with_pytorch:
     else:
         means = [0.5, 0.5, 0.5]
         stds = [1, 1, 1]
-
+'''
 is_trained_with_pytorch = is_trained_with_pytorch or is_onnx
 
 if config.mean is not None:
@@ -436,7 +437,7 @@ if dataset:
 def init(args):
     global failed_already
     failed_already = args
-
+'''
 if dataset=='acasxu':
     if config.debug:
         print('Constraints: ', constraints)
@@ -1082,3 +1083,15 @@ else:
             print("img",i,"not considered, correct_label", int(test[0]), "classified label ", label)
 
     print('analysis precision ',verified_images,'/ ', correctly_classified_images)
+'''
+start=time.time()
+specLB=-1*np.ones(num_pixels,dtype="double")
+specUB=1*np.ones(num_pixels,dtype="double")
+label,nn,nlb_ERAN,nub_ERAN,_,_ = eran.analyze_box(specLB, specUB, domain, config.timeout_lp, config.timeout_milp, config.use_default_heuristic)#label=label, prop=prop)
+end=time.time()
+label,nn,nlb_SAPO,nub_SAPO,_,_ = eran.analyze_box(specLB, specUB, 'refinepoly', config.timeout_lp, config.timeout_milp, config.use_default_heuristic)#label=label, prop=prop)
+print("The total time is ",end-start, "seconds")
+print("lower bounds:{}".format(nlb_ERAN[-1]))
+print("upper bounds:{}".format(nub_ERAN[-1]))
+print("lower bounds:{}".format(nlb_SAPO[-1]))
+print("upper bounds:{}".format(nub_SAPO[-1]))
