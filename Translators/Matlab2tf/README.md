@@ -41,7 +41,7 @@ MATLAB Models - Not only ReLU
 3. `ACC_controller_3_20_tanh` (closed loop)
 
 4. `CartPolecontroller_0403_tanh` (closed loop)
-5.  `mnist5x50` (only ReLU -- not closed loop)
+5. `Engine_Toy_Tansig_net` it employs a `network` object. It is a FF NN (not closed loop).
 
 >[CEX](https://github.com/nikos-kekatos/NNCS_matlab/tree/master/src)
 
@@ -68,7 +68,7 @@ python3 . --netname mnist5x50.tf --dataset mnist --domain deepzono
 - Run different examples without images
   
 - Run acasxu and mnist from NNV
-	1. `Engine_Toy_Tansig_net` it employs a `network` object. It is a FF NN (not closed loop).
+	1.  `mnist5x50` (only ReLU -- not closed loop)
 
 	2. `ACASXU_run2a_2_4_batch_2000` (only ReLU -- not closed loop)
   
