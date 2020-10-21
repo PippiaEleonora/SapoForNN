@@ -76,7 +76,8 @@ class Krelu:
         n_dir = dim[0] // 2
 
         if n_var == 1:
-            output_cons = [np.tanh(input_cons[:][1]), input_cons[:][2]]
+            output_cons = np.concatenate((np.tanh(input_cons[:,[0]]), input_cons[:,[1]]),axis=1)
+            n_cons = dim[0]
         else:
             offp = np.zeros(n_dir, dtype=np.double)
             offm = np.zeros(n_dir, dtype=np.double)
@@ -114,6 +115,7 @@ class Krelu:
                                 (L[j][2] == -input_cons[i][3]):
                             offp[j] = input_cons[i][0]
 
+            #Example
             #L = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1]], dtype=np.double)
             #T = np.array([[0, 1, 2], [3, 4, 5]], dtype=np.double)
             #offp = np.array([1, 1, 3, 1, 2, 3, 1, 1, 3], dtype=np.double)
@@ -131,9 +133,12 @@ class Krelu:
                   + np.arange(output_cons.shape[0]) * output_cons.strides[0]).astype(np.uintp)
 
             n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
-            here = 2
 
-        here = 1
+        elaborate_input_cons = np.concatenate((input_cons, np.zeros([dim[0],n_var], dtype=np.double)),axis=1)
+        elaborate_output_cons = np.concatenate((output_cons[:,[0]], np.zeros([n_cons,n_var],dtype=np.double), output_cons[:,range(n_var)]),axis=1)
+        cons = np.concatenate((elaborate_input_cons,elaborate_output_cons), axis=0)
+
+        '''
         # We get orthant points using exact precision, because it allows to guarantee soundness of the algorithm.
         cdd_hrepr = cdd.Matrix(cdd_hrepr, number_type='fraction')
         cdd_hrepr.rep_type = cdd.RepType.INEQUALITY
@@ -164,11 +169,12 @@ class Krelu:
             cons = cdd.Polyhedron(cdd_vrepr).get_inequalities()
             self.lin_set = cons.lin_set
 
+        '''
         cons = np.asarray(cons, dtype=np.float64)
         # Ax <= b
         # Ax' <= b'
         # If floating point CDD was run, then we have to adjust constraints to make sure taht
-        if adjust_constraints_to_make_sound:
+        if 0:#adjust_constraints_to_make_sound:
             pts = np.asarray(pts, dtype=np.float64)
             cons_abs = np.abs(cons)
             pts_abs = np.abs(pts)
