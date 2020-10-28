@@ -1084,14 +1084,21 @@ else:
 
     print('analysis precision ',verified_images,'/ ', correctly_classified_images)
 '''
-start=time.time()
-specLB=-1*np.ones(num_pixels,dtype="double")
-specUB=1*np.ones(num_pixels,dtype="double")
+
+specLB = -1*np.ones(num_pixels, dtype="double")
+specUB = 1*np.ones(num_pixels, dtype="double")
+
+start = time.time()
 label,nn,nlb_ERAN,nub_ERAN,_,_ = eran.analyze_box(specLB, specUB, 'deeppoly', config.timeout_lp, config.timeout_milp, config.use_default_heuristic)#label=label, prop=prop)
-end=time.time()
+end = time.time()
+
+start_sapo = time.time()
 label,nn,nlb_SAPO,nub_SAPO,_,_ = eran.analyze_box(specLB, specUB, 'refinepoly', config.timeout_lp, config.timeout_milp, config.use_default_heuristic)#label=label, prop=prop)
-print("The total time is ",end-start, "seconds")
-print("lower bounds:{}".format(nlb_ERAN[-1]))
-print("upper bounds:{}".format(nub_ERAN[-1]))
-print("lower bounds:{}".format(nlb_SAPO[-1]))
-print("upper bounds:{}".format(nub_SAPO[-1]))
+end_sapo = time.time()
+
+print("The total time ERAN is ", end-start, "seconds")
+print("lower bounds _eran:{}".format(nlb_ERAN[-1]))
+print("upper bounds _eran:{}".format(nub_ERAN[-1]))
+print("The total time ERAN+SAPO is ", end_sapo-start_sapo, "seconds")
+print("lower bounds _sapo:{}".format(nlb_SAPO[-1]))
+print("upper bounds _sapo:{}".format(nub_SAPO[-1]))

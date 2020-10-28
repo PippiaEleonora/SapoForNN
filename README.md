@@ -6,16 +6,12 @@ Open your terminal, navigate to your desired directory and write:
 
 ## Installation
 
-To run the following project you need to install all the dependences of the [Sapo](https://github.com/dreossi/sapo) project and you need to install the [ERAN](https://github.com/eth-sri/eran/tree/45edbce4dcbeeffb1d77c4f056f2725868b73ef5) tool separately.
+To run the following project you need to install all the dependences of the [Sapo](https://github.com/dreossi/sapo) project and you need to install the [ERAN](https://github.com/eth-sri/eran/tree/45edbce4dcbeeffb1d77c4f056f2725868b73ef5) tool.
 
 Check that your ERAN folder has both the ELINA folder and the "data" folder inside.
-You need to define the ERAN path
+You need to define the ERAN path.
 
-```
-cd ERAN/tf_verify
-```
-
-Open the \_\_main\__.py and define the variable 'Eranfolder', at line 4, with your already installed ERAN (where you have ELINA, deepG etc.)
+Open the \_\_main\_\_.py that you find inside 'SapoForNN/ERAN/tf_verify'. Define the variable 'Eranfolder', at line 4, with your already installed ERAN (where you have ELINA, deepG etc.)
 
 
 To compile the Sapo project:

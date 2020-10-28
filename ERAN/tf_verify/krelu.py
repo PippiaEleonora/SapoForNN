@@ -81,6 +81,8 @@ class Krelu:
         else:
             offp = np.zeros(n_dir, dtype=np.double)
             offm = np.zeros(n_dir, dtype=np.double)
+            lb = np.zeros(n_var, dtype=np.double)
+            ub = np.zeros(n_var, dtype=np.double)
             output_cons = np.empty([dim[0], n_var + 1], dtype=np.double)
             if n_var == 2:
                 # Lx>=offp  & -Lx>=-offm
@@ -89,6 +91,16 @@ class Krelu:
                 T = np.array([[0, 2], [1, 3]], dtype=np.double)
                 n_bundle = 2
                 for i in range(dim[0]):
+                    if input_cons[i][2] == 0:
+                        if input_cons[i][1] > 0:
+                            lb[0] = -input_cons[i][0]
+                        else:
+                            ub[0] = input_cons[i][0]
+                    elif input_cons[i][1] == 0:
+                        if input_cons[i][2] > 0:
+                            lb[1] = -input_cons[i][0]
+                        else:
+                            ub[1] = input_cons[i][0]
                     for j in range(n_dir):
                         if (L[j][0] == input_cons[i][1]) & (L[j][1] == input_cons[i][2]):
                             offp[j] = -input_cons[i][0]
@@ -105,6 +117,21 @@ class Krelu:
                               [9, 3, 11]], dtype=np.double)
                 n_bundle = 5
                 for i in range(dim[0]):
+                    if (input_cons[i][2] == 0) & (input_cons[i][3] == 0):
+                        if input_cons[i][1] > 0:
+                            lb[0] = -input_cons[i][0]
+                        else:
+                            ub[0] = input_cons[i][0]
+                    elif (input_cons[i][1] == 0) & (input_cons[i][3] == 0):
+                        if input_cons[i][2] > 0:
+                            lb[1] = -input_cons[i][0]
+                        else:
+                            ub[1] = input_cons[i][0]
+                    elif (input_cons[i][1] == 0) & (input_cons[i][2] == 0):
+                        if input_cons[i][3] > 0:
+                            lb[2] = -input_cons[i][0]
+                        else:
+                            ub[2] = input_cons[i][0]
                     for j in range(n_dir):
                         if (L[j][0] == input_cons[i][1]) & \
                                 (L[j][1] == input_cons[i][2]) & \
@@ -134,9 +161,26 @@ class Krelu:
 
             n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
 
-        elaborate_input_cons = np.concatenate((input_cons, np.zeros([dim[0],n_var], dtype=np.double)),axis=1)
-        elaborate_output_cons = np.concatenate((output_cons[:,[0]], np.zeros([n_cons,n_var],dtype=np.double), output_cons[:,range(n_var)]),axis=1)
-        cons = np.concatenate((elaborate_input_cons,elaborate_output_cons), axis=0)
+            # check bound
+            for i in range(n_var):
+                if (lb[i] > -2) & (ub[i] < 2):
+                    print('middle interval\n')
+                elif ub[i] < -2:
+                    print('left interval \n')  # we need to do something
+                elif lb[i] > 2:
+                    print('right interval \n')  # we need to do something
+                else:
+                    print('cross interval \n')
+            # extra constraints
+            if n_var == 2:
+                output_cons = np.concatenate((output_cons, [[1, 1, 0], [1, 0, 1], [1, -1, 0], [1, 0, -1]]), axis=0)
+                n_cons = n_cons + 4
+            else:
+                output_cons = np.concatenate((output_cons, [[1, 1, 0, 0], [1, 0, 1, 0], [1, 0, 0, 1], [1, -1, 0, 0], [1, 0, -1, 0], [1, 0, 0, -1]]), axis=0)
+                n_cons = n_cons + 6
+        elaborate_input_cons = np.concatenate((input_cons, np.zeros([dim[0], n_var], dtype=np.double)),axis=1)
+        elaborate_output_cons = np.concatenate((output_cons[:, [0]], np.zeros([n_cons ,n_var], dtype=np.double), output_cons[:, range(n_var)]), axis=1)
+        cons = np.concatenate((elaborate_input_cons, elaborate_output_cons), axis=0)
 
         '''
         # We get orthant points using exact precision, because it allows to guarantee soundness of the algorithm.

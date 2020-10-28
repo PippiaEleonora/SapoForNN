@@ -24,13 +24,17 @@
    ex dx2 = 0;
    ex dx3 = 0;
    
-   //minmax approx with deg=3
+   /*//minmax approx with deg=9
    vector< double > coeff {0.9266, -0.1854, 0.0239, -0.001494, 0.00003511};
    dx1 = dx1 + coeff[0]*pow(x1,1) + coeff[1]*pow(x1,3) + coeff[2]*pow(x1,5) + coeff[3]*pow(x1,7) + coeff[4]*pow(x1,9);
    dx2 = dx2 + coeff[0]*pow(x2,1) + coeff[1]*pow(x2,3) + coeff[2]*pow(x2,5) + coeff[3]*pow(x2,7) + coeff[4]*pow(x2,9);
-   dx3 = dx3 + coeff[0]*pow(x3,1) + coeff[1]*pow(x3,3) + coeff[2]*pow(x3,5) + coeff[3]*pow(x3,7) + coeff[4]*pow(x3,9);
+   dx3 = dx3 + coeff[0]*pow(x3,1) + coeff[1]*pow(x3,3) + coeff[2]*pow(x3,5) + coeff[3]*pow(x3,7) + coeff[4]*pow(x3,9);*/
 
-
+   //minmax approx with deg=5
+   vector< double > coeff {0.9568, -0.2107, 0.02354};
+   dx1 = dx1 + coeff[0]*pow(x1,1) + coeff[1]*pow(x1,3) + coeff[2]*pow(x1,5);
+   dx2 = dx2 + coeff[0]*pow(x2,1) + coeff[1]*pow(x2,3) + coeff[2]*pow(x2,5);
+   dx3 = dx3 + coeff[0]*pow(x3,1) + coeff[1]*pow(x3,3) + coeff[2]*pow(x3,5);
    if(dim_sys==1){
    	vars = x1;
 	dyns = dx1;
