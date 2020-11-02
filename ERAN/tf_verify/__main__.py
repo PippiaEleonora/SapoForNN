@@ -1,10 +1,13 @@
 import sys
 import os
 cpu_affinity = os.sched_getaffinity(0)
-Eranfolder = '../../../../ERAN'
+import numpy as np
+
+temp = open('eranpath','r')
+Eranfolder = temp.readline()[:-1]
 sys.path.insert(0, Eranfolder+'/ELINA/python_interface/')
 sys.path.insert(0, Eranfolder+'/deepg/code/')
-import numpy as np
+
 from eran import ERAN
 from read_net_file import *
 from read_zonotope_file import read_zonotope

@@ -11,7 +11,7 @@ To run the following project you need to install all the dependences of the [Sap
 Check that your ERAN folder has both the ELINA folder and the "data" folder inside.
 You need to define the ERAN path.
 
-Open the \_\_main\_\_.py that you find inside 'SapoForNN/ERAN/tf_verify'. Define the variable 'Eranfolder', at line 4, with your already installed ERAN (where you have ELINA, deepG etc.)
+Open 'eranpath.txt' that you find inside 'SapoForNN/ERAN/tf_verify'. Define the path of your already installed ERAN (where you have ELINA, deepG etc.)
 
 
 To compile the Sapo project:
