@@ -6,7 +6,7 @@
 #include "Sapo.h"
 
 #include "HyperTan3D.h"
-
+#include "HyperTan_custom.h"
 
 using namespace std;
 

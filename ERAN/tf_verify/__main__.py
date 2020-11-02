@@ -401,7 +401,7 @@ else:
     if is_onnx:
         model, is_conv = read_onnx_net(netname)
     else:
-        num_pixels = 784
+        num_pixels = 1#784
         model, is_conv, means, stds = read_tensorflow_net(netname, num_pixels, is_trained_with_pytorch)
     eran = ERAN(model, is_onnx=is_onnx)
 '''
