@@ -74,76 +74,51 @@ class Krelu:
         dim = input_cons.shape
         n_var = dim[1] - 1
         n_dir = dim[0] // 2
-
-        lb = np.zeros(n_var, dtype=np.double)
-        ub = np.zeros(n_var, dtype=np.double)
-        idlb = np.zeros(n_var, dtype=np.int)
-        idub = np.zeros(n_var, dtype=np.int)
-        for i in range(dim[0]):
-            if n_var == 1:
-                if input_cons[i][1] == 1:
-                    lb[0] = -input_cons[i][0]
-                    idlb[0] = i
-                else:
-                    ub[0] = input_cons[i][0]
-                    idub[0] = i
-            else:
-                for j in range(n_var):
-                    temp = np.ma.array(input_cons[i,1:n_var+1], mask=False)
-                    temp.mask[j] = True
-                    if (input_cons[i][j+1] == 1) & (np.sum(np.abs(temp)) == 0):
-                        lb[j] = -input_cons[i][0]
-                        idlb[j] = i
-                    elif (input_cons[i][j+1] == -1) & (np.sum(np.abs(temp)) == 0):
-                        ub[j] = input_cons[i][0]
-                        idub[j] = i
-        input_cons_modify = np.copy(input_cons)
-        extra_cons = np.zeros([n_var*2, n_var + 1], dtype=np.double)
         n_extra_cons = 0
-        for j in range(n_var):
-            if lb[j] < -2:
-                input_cons_modify[idlb[j]][0] = 2
-            elif lb[j] > 2:
-                if n_var > 1:
-                    extra_cons[n_extra_cons][0] = -1
-                    extra_cons[n_extra_cons][j+1] = -1
-                    extra_cons[n_extra_cons+1][0] = 1
-                    extra_cons[n_extra_cons+1][j + 1] = 1
-                    n_extra_cons = n_extra_cons + 2
-                    print('WE SHOULD REMOVE THIS VARIABLE\n')
-            if ub[j] > 2:
-                input_cons_modify[idub[j]][0] = 2
-            elif ub[j] < -2:
-                if n_var > 1:
-                    extra_cons[n_extra_cons][0] = 1
-                    extra_cons[n_extra_cons][j + 1] = -1
-                    extra_cons[n_extra_cons + 1][0] = -1
-                    extra_cons[n_extra_cons + 1][j + 1] = 1
-                    n_extra_cons = n_extra_cons + 2
-                    print('WE SHOULD REMOVE THIS VARIABLE\n')
+        # extra_cons = np.zeros([n_var * 2, n_var + 1], dtype=np.double)
+
         if n_var == 1:
-            output_cons = np.concatenate((np.tanh(input_cons[:,[0]]), input_cons[:,[1]]),axis=1)
+            output_cons = np.concatenate((np.tanh(input_cons[:, [0]]), input_cons[:, [1]]), axis=1)
             n_cons = dim[0]
         else:
             offp = np.zeros(n_dir, dtype=np.double)
             offm = np.zeros(n_dir, dtype=np.double)
             output_cons = np.empty([dim[0], n_var + 1], dtype=np.double)
             if n_var == 2:
-                # Lx>=offp  & -Lx>=-offm
+                # Lx<=offp  & -Lx<=offm
                 L = np.array([[1, 1], [1, 0], [1, -1],
                               [0, 1]], dtype=np.double)
                 T = np.array([[0, 2], [1, 3]], dtype=np.double)
                 n_bundle = 2
                 for i in range(dim[0]):
                     for j in range(n_dir):
-                        if (L[j][0] == input_cons_modify[i][1]) & (L[j][1] == input_cons_modify[i][2]):
-                            offp[j] = -input_cons_modify[i][0]
-                        elif (L[j][0] == -input_cons_modify[i][1]) & (L[j][1] == -input_cons_modify[i][2]):
-                            offm[j] = input_cons_modify[i][0]
-
+                        if (L[j][0] == input_cons[i][1]) & (L[j][1] == input_cons[i][2]):
+                            offm[j] = input_cons[i][0]
+                        elif (L[j][0] == -input_cons[i][1]) & (L[j][1] == -input_cons[i][2]):
+                            offp[j] = input_cons[i][0]
+                lb = np.array([-offm[1], -offm[3]], dtype=np.double)
+                ub = np.array([offp[1], offp[3]], dtype=np.double)
+                lbbounds = [[-lb[0], 1, 0], [2, 1, 0], [-2, 1, 0]]
+                ubbounds = [[-2, -1, 0], [2, -1, 0], [ub[0], -1, 0]]
+                regions = []
+                for i in range(3):
+                    for j in range(3):
+                        regions.append(lbbounds[j])
+                        regions.append(ubbounds[j])
+                        regions.append(lbbounds[2-i])
+                        regions.append(ubbounds[2-i])
+                for i in range(9):
+                    temp_cdd = cdd_hrepr.copy()
+                    for j in range(4):
+                        temp_cdd.append(regions[j+i*4])
+                    temp_cdd = cdd.Matrix(temp_cdd, number_type='fraction')
+                    temp_cdd.rep_type = cdd.RepType.INEQUALITY
+                    pts = self.get_orthant_points(temp_cdd)
+                    if len(pts) > 0:
+                        print('Region',i+1,'is not empty!')
 
             elif n_var == 3:
-                # Lx<=offp  & -Lx<=-offm
+                # Lx<=offp  & -Lx<=offm
                 L = np.array([[1, 1, 1], [1, 1, 0], [1, 1, -1],
                               [1, 0, 1], [1, 0, 0], [1, 0, -1],
                               [1, -1, 1], [1, -1, 0], [1, -1, -1],
@@ -154,14 +129,38 @@ class Krelu:
                 n_bundle = 5
                 for i in range(dim[0]):
                     for j in range(n_dir):
-                        if (L[j][0] == input_cons_modify[i][1]) & \
-                                (L[j][1] == input_cons_modify[i][2]) & \
-                                (L[j][2] == input_cons_modify[i][3]):
-                            offm[j] = input_cons_modify[i][0]
-                        elif (L[j][0] == -input_cons_modify[i][1]) & \
-                                (L[j][1] == -input_cons_modify[i][2]) & \
-                                (L[j][2] == -input_cons_modify[i][3]):
-                            offp[j] = input_cons_modify[i][0]
+                        if (L[j][0] == input_cons[i][1]) & \
+                                (L[j][1] == input_cons[i][2]) & \
+                                (L[j][2] == input_cons[i][3]):
+                            offm[j] = input_cons[i][0]
+                        elif (L[j][0] == -input_cons[i][1]) & \
+                                (L[j][1] == -input_cons[i][2]) & \
+                                (L[j][2] == -input_cons[i][3]):
+                            offp[j] = input_cons[i][0]
+                lb = np.array([-offm[4], -offm[10], -offm[12]], dtype=np.double)
+                ub = np.array([offp[4], offp[10], offp[12]], dtype=np.double)
+                lbbounds = [[-lb[0], 1, 0, 0], [2, 1, 0, 0], [-2, 1, 0, 0]]
+                ubbounds = [[-2, -1, 0, 0], [2, -1, 0, 0], [ub[0], -1, 0, 0]]
+                regions = []
+                for i in range(3):
+                    for j in range(3):
+                        for k in range(3):
+                            regions.append(lbbounds[k])
+                            regions.append(ubbounds[k])
+                            regions.append(lbbounds[j])
+                            regions.append(ubbounds[j])
+                            regions.append(lbbounds[i])
+                            regions.append(ubbounds[i])
+
+                for i in range(27):
+                    temp_cdd = cdd_hrepr.copy()
+                    for j in range(6):
+                        temp_cdd.append(regions[j + i * 6])
+                    temp_cdd = cdd.Matrix(temp_cdd, number_type='fraction')
+                    temp_cdd.rep_type = cdd.RepType.INEQUALITY
+                    pts = self.get_orthant_points(temp_cdd)
+                    if len(pts) > 0:
+                        print('Region', i + 1, 'is not empty!')
 
             coffp = offp.ctypes.data_as(POINTER(c_double))
             coffm = offm.ctypes.data_as(POINTER(c_double))
@@ -174,19 +173,11 @@ class Krelu:
                   + np.arange(output_cons.shape[0]) * output_cons.strides[0]).astype(np.uintp)
 
             n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
+
             # extra constraints
-            if n_var == 2:
-                output_cons = np.concatenate((output_cons, [[1, 1, 0], [1, 0, 1], [1, -1, 0], [1, 0, -1]]), axis=0)
-                n_cons = n_cons + 4
-                if n_extra_cons > 0:
-                    output_cons = np.concatenate((output_cons,extra_cons), axis=0)
-                    n_cons = n_cons + n_extra_cons
-            else:
-                output_cons = np.concatenate((output_cons, [[1, 1, 0, 0], [1, 0, 1, 0], [1, 0, 0, 1], [1, -1, 0, 0], [1, 0, -1, 0], [1, 0, 0, -1]]), axis=0)
-                n_cons = n_cons + 6
-                if n_extra_cons > 0:
-                    output_cons = np.concatenate((output_cons,extra_cons), axis=0)
-                    n_cons = n_cons + n_extra_cons
+            if n_extra_cons > 0:
+                output_cons = np.concatenate((output_cons,extra_cons), axis=0)
+                n_cons = n_cons + n_extra_cons
         elaborate_input_cons = np.concatenate((input_cons, np.zeros([dim[0], n_var], dtype=np.double)),axis=1)
         elaborate_output_cons = np.concatenate((output_cons[:, [0]], np.zeros([n_cons ,n_var], dtype=np.double), output_cons[:, range(n_var)]), axis=1)
         cons = np.concatenate((elaborate_input_cons, elaborate_output_cons), axis=0)
