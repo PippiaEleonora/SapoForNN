@@ -46,7 +46,6 @@ class py_sapo:
                             (self.L[j][1] == -cdd[i][2]) & \
                             (self.L[j][2] == -cdd[i][3]):
                         self.offp[j] = cdd[i][0]
-        return self.offp, self.offm
 
     def createRegions(self):
         regions = []

@@ -75,22 +75,17 @@ class Krelu:
         dim = input_cons.shape
         n_var = dim[1] - 1
         n_dir = dim[0] // 2
-        n_extra_cons = 0
-        # extra_cons = np.zeros([n_var * 2, n_var + 1], dtype=np.double)
 
         if n_var == 1:
             output_cons = np.concatenate((np.tanh(input_cons[:, [0]]), input_cons[:, [1]]), axis=1)
             n_cons = dim[0]
         else:
             modelSapo = py_sapo(n_var)
-            offp = np.zeros(n_dir, dtype=np.double)
-            offm = np.zeros(n_dir, dtype=np.double)
-            output_cons = np.empty([dim[0], n_var + 1], dtype=np.double)
             output_cons_temp = np.empty([dim[0], n_var + 1], dtype=np.double)
             output_cons_val = np.empty(0, dtype=np.double)
 
             [L, T, n_bundle] = modelSapo.LTmatrix()
-            [offp, offm] = modelSapo.offset(input_cons, dim[0])
+            modelSapo.offset(input_cons, dim[0])
 
             cL = (L.__array_interface__['data'][0]
                   + np.arange(L.shape[0]) * L.strides[0]).astype(np.uintp)
@@ -145,12 +140,13 @@ class Krelu:
             # Make the union of the output sets
             output_cons_val = np.reshape(output_cons_val, (-1, n_cons))
             output_cons_val = np.max(output_cons_val, 0)
-            output_cons = output_cons_temp
+            output_cons = np.copy(output_cons_temp)
             output_cons[:, 0] = output_cons_val
 
         # Collect all the input-output constraints
-        elaborate_input_cons = np.concatenate((input_cons, np.zeros([dim[0], n_var], dtype=np.double)),axis=1)
-        elaborate_output_cons = np.concatenate((output_cons[:, [0]], np.zeros([n_cons ,n_var], dtype=np.double), output_cons[:, range(n_var)]), axis=1)
+        elaborate_input_cons = np.concatenate((input_cons, np.zeros([dim[0], n_var], dtype=np.double)), axis=1)
+        elaborate_output_cons = np.concatenate((output_cons[:, [0]], np.zeros([n_cons, n_var], dtype=np.double),
+                                                output_cons[:, range(n_var)]), axis=1)
         cons = np.concatenate((elaborate_input_cons, elaborate_output_cons), axis=0)
 
         '''
@@ -186,8 +182,7 @@ class Krelu:
 
         '''
         cons = np.asarray(cons, dtype=np.float64)
-        # Ax <= b
-        # Ax' <= b'
+
         # If floating point CDD was run, then we have to adjust constraints to make sure taht
         if 0:#adjust_constraints_to_make_sound:
             pts = np.asarray(pts, dtype=np.float64)
