@@ -27,7 +27,7 @@ make
 Run the first example
 
 ``` 
-cd Eran/tf_verify
+cd ERAN/tf_verify
 python3 . --netname DATA/mnist_tanh_3_5.tf --epsilon 0.1 --domain refinepoly --sparse_n 3 --refine_neurons
 ```
 
