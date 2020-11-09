@@ -30,6 +30,7 @@ all polytopes generated here should be closed, hence code=1
 import pandas as pd
 from ctypes import cdll
 from ctypes import *
+from py_sapo import py_sapo
 import numpy.ctypeslib
 
 array_2d_double = np.ctypeslib.ndpointer(dtype=np.uintp, ndim=1, flags='C')
@@ -81,103 +82,73 @@ class Krelu:
             output_cons = np.concatenate((np.tanh(input_cons[:, [0]]), input_cons[:, [1]]), axis=1)
             n_cons = dim[0]
         else:
+            modelSapo = py_sapo(n_var)
             offp = np.zeros(n_dir, dtype=np.double)
             offm = np.zeros(n_dir, dtype=np.double)
             output_cons = np.empty([dim[0], n_var + 1], dtype=np.double)
-            if n_var == 2:
-                # Lx<=offp  & -Lx<=offm
-                L = np.array([[1, 1], [1, 0], [1, -1],
-                              [0, 1]], dtype=np.double)
-                T = np.array([[0, 2], [1, 3]], dtype=np.double)
-                n_bundle = 2
-                for i in range(dim[0]):
-                    for j in range(n_dir):
-                        if (L[j][0] == input_cons[i][1]) & (L[j][1] == input_cons[i][2]):
-                            offm[j] = input_cons[i][0]
-                        elif (L[j][0] == -input_cons[i][1]) & (L[j][1] == -input_cons[i][2]):
-                            offp[j] = input_cons[i][0]
-                lb = np.array([-offm[1], -offm[3]], dtype=np.double)
-                ub = np.array([offp[1], offp[3]], dtype=np.double)
-                lbbounds = [[-lb[0], 1, 0], [2, 1, 0], [-2, 1, 0]]
-                ubbounds = [[-2, -1, 0], [2, -1, 0], [ub[0], -1, 0]]
-                regions = []
-                for i in range(3):
-                    for j in range(3):
-                        regions.append(lbbounds[j])
-                        regions.append(ubbounds[j])
-                        regions.append(lbbounds[2-i])
-                        regions.append(ubbounds[2-i])
-                for i in range(9):
-                    temp_cdd = cdd_hrepr.copy()
-                    for j in range(4):
-                        temp_cdd.append(regions[j+i*4])
-                    temp_cdd = cdd.Matrix(temp_cdd, number_type='fraction')
-                    temp_cdd.rep_type = cdd.RepType.INEQUALITY
-                    pts = self.get_orthant_points(temp_cdd)
-                    if len(pts) > 0:
-                        print('Region',i+1,'is not empty!')
+            output_cons_temp = np.empty([dim[0], n_var + 1], dtype=np.double)
+            output_cons_val = np.empty(0, dtype=np.double)
 
-            elif n_var == 3:
-                # Lx<=offp  & -Lx<=offm
-                L = np.array([[1, 1, 1], [1, 1, 0], [1, 1, -1],
-                              [1, 0, 1], [1, 0, 0], [1, 0, -1],
-                              [1, -1, 1], [1, -1, 0], [1, -1, -1],
-                              [0, 1, 1], [0, 1, 0], [0, 1, -1],
-                              [0, 0, 1]], dtype=np.double)
-                T = np.array([[4, 10, 12], [0, 1, 3], [2, 4, 7], [5, 6, 8],
-                              [9, 3, 11]], dtype=np.double)
-                n_bundle = 5
-                for i in range(dim[0]):
-                    for j in range(n_dir):
-                        if (L[j][0] == input_cons[i][1]) & \
-                                (L[j][1] == input_cons[i][2]) & \
-                                (L[j][2] == input_cons[i][3]):
-                            offm[j] = input_cons[i][0]
-                        elif (L[j][0] == -input_cons[i][1]) & \
-                                (L[j][1] == -input_cons[i][2]) & \
-                                (L[j][2] == -input_cons[i][3]):
-                            offp[j] = input_cons[i][0]
-                lb = np.array([-offm[4], -offm[10], -offm[12]], dtype=np.double)
-                ub = np.array([offp[4], offp[10], offp[12]], dtype=np.double)
-                lbbounds = [[-lb[0], 1, 0, 0], [2, 1, 0, 0], [-2, 1, 0, 0]]
-                ubbounds = [[-2, -1, 0, 0], [2, -1, 0, 0], [ub[0], -1, 0, 0]]
-                regions = []
-                for i in range(3):
-                    for j in range(3):
-                        for k in range(3):
-                            regions.append(lbbounds[k])
-                            regions.append(ubbounds[k])
-                            regions.append(lbbounds[j])
-                            regions.append(ubbounds[j])
-                            regions.append(lbbounds[i])
-                            regions.append(ubbounds[i])
-
-                for i in range(27):
-                    temp_cdd = cdd_hrepr.copy()
-                    for j in range(6):
-                        temp_cdd.append(regions[j + i * 6])
-                    temp_cdd = cdd.Matrix(temp_cdd, number_type='fraction')
-                    temp_cdd.rep_type = cdd.RepType.INEQUALITY
-                    pts = self.get_orthant_points(temp_cdd)
-                    if len(pts) > 0:
-                        print('Region', i + 1, 'is not empty!')
-
-            coffp = offp.ctypes.data_as(POINTER(c_double))
-            coffm = offm.ctypes.data_as(POINTER(c_double))
+            [L, T, n_bundle] = modelSapo.LTmatrix()
+            [offp, offm] = modelSapo.offset(input_cons, dim[0])
 
             cL = (L.__array_interface__['data'][0]
                   + np.arange(L.shape[0]) * L.strides[0]).astype(np.uintp)
             cT = (T.__array_interface__['data'][0]
                   + np.arange(T.shape[0]) * T.strides[0]).astype(np.uintp)
-            cA = (output_cons.__array_interface__['data'][0]
-                  + np.arange(output_cons.shape[0]) * output_cons.strides[0]).astype(np.uintp)
+            cA = (output_cons_temp.__array_interface__['data'][0]
+                  + np.arange(output_cons_temp.shape[0]) * output_cons_temp.strides[0]).astype(np.uintp)
 
-            n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
+            regions = modelSapo.createRegions()
+            for i in range(pow(3, n_var)):
+                temp_cdd = cdd_hrepr.copy()
+                for j in range(2*n_var):
+                    temp_cdd.append(regions[j + i * 2*n_var])
+                temp_cdd = cdd.Matrix(temp_cdd, number_type='fraction')
+                temp_cdd.rep_type = cdd.RepType.INEQUALITY
+                pts = self.get_orthant_points(temp_cdd)
+                if len(pts) > 0:
+                    print('Region', i + 1, 'is not empty!')
 
-            # extra constraints
-            if n_extra_cons > 0:
-                output_cons = np.concatenate((output_cons,extra_cons), axis=0)
-                n_cons = n_cons + n_extra_cons
+                    # WARNING WE SHOULD EXCLUDE SOME OF THESE REGIONS
+                    # case n_var==2 we should exclude i=={0, 2, 6, 8}
+                    # case n_var==3 we should exclude i=={0, 2, 6, 8, 18, 20, 24, 26}
+
+                    # Reshape the input constraints
+                    pts_np = np.array(pts, dtype=np.double)
+                    pts_np = pts_np.transpose()
+                    val = L @ pts_np
+                    offp_temp = np.max(val, 1)
+                    offm_temp = np.max(-val, 1)
+
+                    # Call sapo
+                    coffp = offp_temp.ctypes.data_as(POINTER(c_double))
+                    coffm = offm_temp.ctypes.data_as(POINTER(c_double))
+                    n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
+
+                    # Reshape the output constraints
+                    if n_var == 2:
+                        output_cons_temp[[0, 1, n_dir, n_dir+1], 0] = np.minimum(output_cons_temp[[1, 3, 5, 7], 0], 1)
+                        output_cons_temp[[2, 3, n_dir+2, n_dir+3], 0] = np.minimum(output_cons_temp[[0, 2, 4, 6], 0], 2)
+                    elif n_var == 3:
+                        # Reshape the output constraints (restrict to [-1,1]^n_var)
+                        output_cons_temp[[0, 1, 2, n_dir, n_dir+1, n_dir+2], 0] = np.minimum(
+                            output_cons_temp[[0, 1, 2, n_dir, n_dir+1, n_dir+2], 0], 1)
+                        output_cons_temp[[3, 4, 5, 6, 7, 8, n_dir+3, n_dir+4, n_dir+5, n_dir+6, n_dir+7, n_dir+8], 0] = np.minimum(
+                            output_cons_temp[[3, 4, 5, 6, 7, 8, n_dir+3, n_dir+4, n_dir+5, n_dir+6, n_dir+7, n_dir+8], 0], 2)
+                        output_cons_temp[[9, 10, 11, 12, n_dir+9, n_dir+10, n_dir+11, n_dir+12], 0] = np.minimum(
+                            output_cons_temp[[9, 10, 11, 12, n_dir+9, n_dir+10, n_dir+11, n_dir+12], 0], 3)
+
+                    # Append the bounds
+                    output_cons_val = np.concatenate((output_cons_val, output_cons_temp[:, 0]), axis=0)
+
+            # Make the union of the output sets
+            output_cons_val = np.reshape(output_cons_val, (-1, n_cons))
+            output_cons_val = np.max(output_cons_val, 0)
+            output_cons = output_cons_temp
+            output_cons[:, 0] = output_cons_val
+
+        # Collect all the input-output constraints
         elaborate_input_cons = np.concatenate((input_cons, np.zeros([dim[0], n_var], dtype=np.double)),axis=1)
         elaborate_output_cons = np.concatenate((output_cons[:, [0]], np.zeros([n_cons ,n_var], dtype=np.double), output_cons[:, range(n_var)]), axis=1)
         cons = np.concatenate((elaborate_input_cons, elaborate_output_cons), axis=0)
