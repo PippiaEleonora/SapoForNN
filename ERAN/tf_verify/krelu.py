@@ -102,10 +102,11 @@ class Krelu:
                 temp_cdd = cdd.Matrix(temp_cdd, number_type='fraction')
                 temp_cdd.rep_type = cdd.RepType.INEQUALITY
                 pts = cdd.Polyhedron(temp_cdd).get_generators()
-                pts_np = np.array(pts, dtype=np.double)
+                pts_np_temp = np.array(pts, dtype=np.double)
 
-                if len(pts_np) > 0:
+                if len(pts_np_temp) > 0:
                     print('Region', i + 1, 'is not empty!')
+                    pts_np = pts_np_temp[::, 1::]
 
                     # WARNING WE SHOULD EXCLUDE SOME OF THESE REGIONS
                     # case n_var==2 we should exclude i=={0, 2, 6, 8}
