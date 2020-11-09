@@ -101,8 +101,10 @@ class Krelu:
                     temp_cdd.append(regions[j + i * 2*n_var])
                 temp_cdd = cdd.Matrix(temp_cdd, number_type='fraction')
                 temp_cdd.rep_type = cdd.RepType.INEQUALITY
-                pts = self.get_orthant_points(temp_cdd)
-                if len(pts) > 0:
+                pts = cdd.Polyhedron(temp_cdd).get_generators()
+                pts_np = np.array(pts, dtype=np.double)
+
+                if len(pts_np) > 0:
                     print('Region', i + 1, 'is not empty!')
 
                     # WARNING WE SHOULD EXCLUDE SOME OF THESE REGIONS
@@ -110,23 +112,24 @@ class Krelu:
                     # case n_var==3 we should exclude i=={0, 2, 6, 8, 18, 20, 24, 26}
 
                     # Reshape the input constraints
-                    pts_np = np.array(pts, dtype=np.double)
                     pts_np = pts_np.transpose()
                     val = L @ pts_np
-                    offp_temp = np.max(val, 1)
-                    offm_temp = np.max(-val, 1)
+                    offp_temp = np.max(val, 1) #Lx <= b
+                    offm_temp = np.max(-val, 1) #-Lx <= b
 
                     # Call sapo
                     coffp = offp_temp.ctypes.data_as(POINTER(c_double))
                     coffm = offm_temp.ctypes.data_as(POINTER(c_double))
                     n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
 
-                    # Reshape the output constraints
+                    # Reshape the output constraints (restrict to [-1,1]^n_var)
+                    # Ax + b >= 0
+                    # x_1 >= -1   x_1+1>=0
+                    # x1 <= 1     x_1+1>=0
                     if n_var == 2:
                         output_cons_temp[[0, 1, n_dir, n_dir+1], 0] = np.minimum(output_cons_temp[[1, 3, 5, 7], 0], 1)
                         output_cons_temp[[2, 3, n_dir+2, n_dir+3], 0] = np.minimum(output_cons_temp[[0, 2, 4, 6], 0], 2)
                     elif n_var == 3:
-                        # Reshape the output constraints (restrict to [-1,1]^n_var)
                         output_cons_temp[[0, 1, 2, n_dir, n_dir+1, n_dir+2], 0] = np.minimum(
                             output_cons_temp[[0, 1, 2, n_dir, n_dir+1, n_dir+2], 0], 1)
                         output_cons_temp[[3, 4, 5, 6, 7, 8, n_dir+3, n_dir+4, n_dir+5, n_dir+6, n_dir+7, n_dir+8], 0] = np.minimum(
