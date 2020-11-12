@@ -126,17 +126,34 @@ class Krelu:
                     # Reshape the output constraints (restrict to [-1,1]^n_var)
                     # Ax + b >= 0
                     # x_1 >= -1   x_1+1>=0
-                    # x1 <= 1     x_1+1>=0
+                    # x1 <= 1     -x_1+1>=0
+                    # --------------------
+                    # [b A] such Ax+b>=0 (se n_var=2)
+                    # b0 1 0
+                    # b1 0 1
+                    # b2 1 1
+                    # b3 1 -1
+                    # b4 -1 0
+                    # b5 0 -1
+                    # b6 -1 -1
+                    # b7 -1 1
+
+
                     if n_var == 2:
-                        output_cons_temp[[0, 1, n_dir, n_dir+1], 0] = np.minimum(output_cons_temp[[1, 3, 5, 7], 0], 1)
-                        output_cons_temp[[2, 3, n_dir+2, n_dir+3], 0] = np.minimum(output_cons_temp[[0, 2, 4, 6], 0], 2)
+                        output_cons_temp[[0, 1, n_dir, n_dir + 1], 0] = np.maximum(np.minimum(
+                            output_cons_temp[[0, 1, n_dir, n_dir + 1], 0], 1), -1)
+                        output_cons_temp[[2, 3, n_dir+2, n_dir+3], 0] = np.maximum(np.minimum(
+                            output_cons_temp[[2, 3, n_dir+2, n_dir+3], 0], 2), -2)
                     elif n_var == 3:
-                        output_cons_temp[[0, 1, 2, n_dir, n_dir+1, n_dir+2], 0] = np.minimum(
-                            output_cons_temp[[0, 1, 2, n_dir, n_dir+1, n_dir+2], 0], 1)
-                        output_cons_temp[[3, 4, 5, 6, 7, 8, n_dir+3, n_dir+4, n_dir+5, n_dir+6, n_dir+7, n_dir+8], 0] = np.minimum(
-                            output_cons_temp[[3, 4, 5, 6, 7, 8, n_dir+3, n_dir+4, n_dir+5, n_dir+6, n_dir+7, n_dir+8], 0], 2)
-                        output_cons_temp[[9, 10, 11, 12, n_dir+9, n_dir+10, n_dir+11, n_dir+12], 0] = np.minimum(
-                            output_cons_temp[[9, 10, 11, 12, n_dir+9, n_dir+10, n_dir+11, n_dir+12], 0], 3)
+                        output_cons_temp[[0, 1, 2, n_dir, n_dir+1, n_dir+2], 0] = np.maximum(np.minimum(
+                            output_cons_temp[[0, 1, 2, n_dir, n_dir+1, n_dir+2], 0], 1), -1)
+                        output_cons_temp[[3, 4, 5, 6, 7, 8, n_dir + 3, n_dir + 4, n_dir + 5, n_dir + 6, n_dir + 7,
+                                          n_dir + 8], 0] = np.maximum(np.minimum(
+                            output_cons_temp[[3, 4, 5, 6, 7, 8, n_dir + 3, n_dir + 4, n_dir + 5, n_dir + 6, n_dir + 7,
+                                              n_dir + 8], 0], 2),-2)
+                        output_cons_temp[
+                            [9, 10, 11, 12, n_dir + 9, n_dir + 10, n_dir + 11, n_dir + 12], 0] = np.maximum(np.minimum(
+                            output_cons_temp[[9, 10, 11, 12, n_dir + 9, n_dir + 10, n_dir + 11, n_dir + 12], 0], 3), -3)
 
                     # Append the bounds
                     output_cons_val = np.concatenate((output_cons_val, output_cons_temp[:, 0]), axis=0)
