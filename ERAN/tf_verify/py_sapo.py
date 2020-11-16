@@ -78,6 +78,8 @@ class py_sapo:
                                                                              axis=0)
 
         elif self.nvar == 3:
+            lbpoint = np.array([-1, -1, 1], dtype=np.double)
+            ubpoint = np.array([-1, 1, 1], dtype=np.double)
             lb = np.array([-self.offm[0], -self.offm[1], -self.offm[2]], dtype=np.double)
             ub = np.array([self.offp[0], self.offp[1], self.offp[2]], dtype=np.double)
             lbx1 = [[-lb[0], 1, 0, 0], [2, 1, 0, 0], [-2, 1, 0, 0]]
@@ -95,38 +97,16 @@ class py_sapo:
                         regions.append(ubx2[j])
                         regions.append(lbx3[i])
                         regions.append(ubx3[i])
-                        self.outputbounds[k + j * 3 + i * 9, :] = [1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 1, 1, 1, 2, 2, 2, 2,
-                                                           2, 2, 3, 3, 3, 3]
-                        if i == 0:
-                            if j == 0:
-                                if k == 0:
-                                    self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
-                                        (-self.L @ [-1, -1, -1], self.L @ [-1, -1, -1]), axis=0)
-                                elif k == 2:
-                                    self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
-                                        (-self.L @ [-1, -1, 1], self.L @ [-1, -1, 1]), axis=0)
-                            elif j == 2:
-                                if k == 0:
-                                    self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
-                                        (-self.L @ [-1, 1, -1], self.L @ [-1, 1, -1]), axis=0)
-                                elif k == 2:
-                                    self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
-                                        (-self.L @ [-1, 1, 1], self.L @ [-1, 1, 1]), axis=0)
-                        elif i == 2:
-                            if j == 0:
-                                if k == 0:
-                                    self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
-                                        (-self.L @ [1, -1, -1], self.L @ [1, -1, -1]), axis=0)
-                                elif k == 2:
-                                    self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
-                                        (-self.L @ [1, -1, 1], self.L @ [1, -1, 1]), axis=0)
-                            elif j == 2:
-                                if k == 0:
-                                    self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
-                                        (-self.L @ [1, 1, -1], self.L @ [1, 1, -1]), axis=0)
-                                elif k == 2:
-                                    self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
-                                        (-self.L @ [1, 1, 1], self.L @ [1, 1, 1]), axis=0)
+
+                        points = [[x, y, z] for x in [lbpoint[i], ubpoint[i]] for y in [lbpoint[j], ubpoint[j]]
+                                  for z in [lbpoint[k], ubpoint[k]]]
+                        points = np.asarray(points, dtype=np.double)
+                        points = np.unique(points, axis=0)
+
+                        result1 = np.min(points@np.transpose(self.L), axis=0)
+                        result2 = np.max(points @ np.transpose(self.L), axis=0)
+                        self.outputbounds[k + j * 3 + i * 9, :] = self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
+                            (-result1, result2), axis=0)
         return regions
 
     def emptyoutputcons(self):
