@@ -107,56 +107,58 @@ class Krelu:
                 if len(pts_np_temp) > 0:
                     print('Region', i + 1, 'is not empty!')
                     pts_np = pts_np_temp[::, 1::]
+                    if i in [0, 2, 6, 8, 18, 20, 24, 26]:
+                        n_cons = pow(3, n_var) - 1
+                        output_cons_val_temp = modelSapo.comput_valOutputcons(i)
+                        output_cons_temp = modelSapo.emptyoutputcons()
+                        output_cons_val = np.concatenate((output_cons_val, output_cons_val_temp), axis=0)
 
-                    # WARNING WE SHOULD EXCLUDE SOME OF THESE REGIONS
-                    # case n_var==2 we should exclude i=={0, 2, 6, 8}
-                    # case n_var==3 we should exclude i=={0, 2, 6, 8, 18, 20, 24, 26}
+                    else:
+                        # Reshape the input constraints
+                        pts_np = pts_np.transpose()
+                        val = L @ pts_np
+                        offp_temp = np.max(val, 1) #Lx <= b
+                        offm_temp = np.max(-val, 1) #-Lx <= b
 
-                    # Reshape the input constraints
-                    pts_np = pts_np.transpose()
-                    val = L @ pts_np
-                    offp_temp = np.max(val, 1) #Lx <= b
-                    offm_temp = np.max(-val, 1) #-Lx <= b
+                        # Call sapo
+                        coffp = offp_temp.ctypes.data_as(POINTER(c_double))
+                        coffm = offm_temp.ctypes.data_as(POINTER(c_double))
+                        n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
 
-                    # Call sapo
-                    coffp = offp_temp.ctypes.data_as(POINTER(c_double))
-                    coffm = offm_temp.ctypes.data_as(POINTER(c_double))
-                    n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
-
-                    # Reshape the output constraints (restrict to [-1,1]^n_var)
-                    # Ax + b >= 0
-                    # x_1 >= -1   x_1+1>=0
-                    # x1 <= 1     -x_1+1>=0
-                    # --------------------
-                    # [b A] such Ax+b>=0 (se n_var=2)
-                    # b0 1 0
-                    # b1 0 1
-                    # b2 1 1
-                    # b3 1 -1
-                    # b4 -1 0
-                    # b5 0 -1
-                    # b6 -1 -1
-                    # b7 -1 1
+                        # Reshape the output constraints (restrict to [-1,1]^n_var)
+                        # Ax + b >= 0
+                        # x_1 >= -1   x_1+1>=0
+                        # x1 <= 1     -x_1+1>=0
+                        # --------------------
+                        # [b A] such Ax+b>=0 (se n_var=2)
+                        # b0 1 0
+                        # b1 0 1
+                        # b2 1 1
+                        # b3 1 -1
+                        # b4 -1 0
+                        # b5 0 -1
+                        # b6 -1 -1
+                        # b7 -1 1
 
 
-                    if n_var == 2:
-                        output_cons_temp[[0, 1, n_dir, n_dir + 1], 0] = np.maximum(np.minimum(
-                            output_cons_temp[[0, 1, n_dir, n_dir + 1], 0], 1), -1)
-                        output_cons_temp[[2, 3, n_dir+2, n_dir+3], 0] = np.maximum(np.minimum(
-                            output_cons_temp[[2, 3, n_dir+2, n_dir+3], 0], 2), -2)
-                    elif n_var == 3:
-                        output_cons_temp[[0, 1, 2, n_dir, n_dir+1, n_dir+2], 0] = np.maximum(np.minimum(
-                            output_cons_temp[[0, 1, 2, n_dir, n_dir+1, n_dir+2], 0], 1), -1)
-                        output_cons_temp[[3, 4, 5, 6, 7, 8, n_dir + 3, n_dir + 4, n_dir + 5, n_dir + 6, n_dir + 7,
-                                          n_dir + 8], 0] = np.maximum(np.minimum(
+                        if n_var == 2:
+                            output_cons_temp[[0, 1, n_dir, n_dir + 1], 0] = np.maximum(np.minimum(
+                                output_cons_temp[[0, 1, n_dir, n_dir + 1], 0], 1), -1)
+                            output_cons_temp[[2, 3, n_dir+2, n_dir+3], 0] = np.maximum(np.minimum(
+                                output_cons_temp[[2, 3, n_dir+2, n_dir+3], 0], 2), -2)
+                        elif n_var == 3:
+                            output_cons_temp[[0, 1, 2, n_dir, n_dir+1, n_dir+2], 0] = np.maximum(np.minimum(
+                                output_cons_temp[[0, 1, 2, n_dir, n_dir+1, n_dir+2], 0], 1), -1)
                             output_cons_temp[[3, 4, 5, 6, 7, 8, n_dir + 3, n_dir + 4, n_dir + 5, n_dir + 6, n_dir + 7,
-                                              n_dir + 8], 0], 2),-2)
-                        output_cons_temp[
-                            [9, 10, 11, 12, n_dir + 9, n_dir + 10, n_dir + 11, n_dir + 12], 0] = np.maximum(np.minimum(
-                            output_cons_temp[[9, 10, 11, 12, n_dir + 9, n_dir + 10, n_dir + 11, n_dir + 12], 0], 3), -3)
+                                              n_dir + 8], 0] = np.maximum(np.minimum(
+                                output_cons_temp[[3, 4, 5, 6, 7, 8, n_dir + 3, n_dir + 4, n_dir + 5, n_dir + 6, n_dir + 7,
+                                                  n_dir + 8], 0], 2),-2)
+                            output_cons_temp[
+                                [9, 10, 11, 12, n_dir + 9, n_dir + 10, n_dir + 11, n_dir + 12], 0] = np.maximum(np.minimum(
+                                output_cons_temp[[9, 10, 11, 12, n_dir + 9, n_dir + 10, n_dir + 11, n_dir + 12], 0], 3), -3)
 
-                    # Append the bounds
-                    output_cons_val = np.concatenate((output_cons_val, output_cons_temp[:, 0]), axis=0)
+                        # Append the bounds
+                        output_cons_val = np.concatenate((output_cons_val, output_cons_temp[:, 0]), axis=0)
 
             # Make the union of the output sets
             output_cons_val = np.reshape(output_cons_val, (-1, n_cons))

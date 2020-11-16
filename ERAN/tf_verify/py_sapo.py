@@ -49,6 +49,7 @@ class py_sapo:
 
     def createRegions(self):
         regions = []
+        self.outputbounds = np.zeros([pow(3, self.nvar), 2*self.n_dir], dtype=np.double)
         if self.nvar == 2:
             lb = np.array([-self.offm[0], -self.offm[1]], dtype=np.double)
             ub = np.array([self.offp[0], self.offp[1]], dtype=np.double)
@@ -62,6 +63,20 @@ class py_sapo:
                     regions.append(ubx1[j])
                     regions.append(lbx2[2 - i])
                     regions.append(ubx2[2 - i])
+                    self.outputbounds[j + i*3, :] = [1, 1, 2, 2, 1, 1, 2, 2]
+                    if i == 0:
+                        if j == 0:
+                            self.outputbounds[j + i * 3, :] = np.concatenate((-self.L@[-1, 1], self.L@[-1, 1]), axis=0)
+                        elif j == 2:
+                            self.outputbounds[j + i * 3, :] = np.concatenate((-self.L @ [1, 1], self.L @ [1, 1]),
+                                                                             axis=0)
+                    elif i == 2:
+                        if j == 0:
+                            self.outputbounds[j + i * 3, :] = np.concatenate((-self.L @ [-1, -1], self.L @ [-1, -1]), axis=0)
+                        elif j == 2:
+                            self.outputbounds[j + i * 3, :] = np.concatenate((-self.L @ [1, -1], self.L @ [1, -1]),
+                                                                             axis=0)
+
         elif self.nvar == 3:
             lb = np.array([-self.offm[0], -self.offm[1], -self.offm[2]], dtype=np.double)
             ub = np.array([self.offp[0], self.offp[1], self.offp[2]], dtype=np.double)
@@ -80,5 +95,44 @@ class py_sapo:
                         regions.append(ubx2[j])
                         regions.append(lbx3[i])
                         regions.append(ubx3[i])
+                        self.outputbounds[k + j * 3 + i * 9, :] = [1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 1, 1, 1, 2, 2, 2, 2,
+                                                           2, 2, 3, 3, 3, 3]
+                        if i == 0:
+                            if j == 0:
+                                if k == 0:
+                                    self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
+                                        (-self.L @ [-1, -1, -1], self.L @ [-1, -1, -1]), axis=0)
+                                elif k == 2:
+                                    self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
+                                        (-self.L @ [-1, -1, 1], self.L @ [-1, -1, 1]), axis=0)
+                            elif j == 2:
+                                if k == 0:
+                                    self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
+                                        (-self.L @ [-1, 1, -1], self.L @ [-1, 1, -1]), axis=0)
+                                elif k == 2:
+                                    self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
+                                        (-self.L @ [-1, 1, 1], self.L @ [-1, 1, 1]), axis=0)
+                        elif i == 2:
+                            if j == 0:
+                                if k == 0:
+                                    self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
+                                        (-self.L @ [1, -1, -1], self.L @ [1, -1, -1]), axis=0)
+                                elif k == 2:
+                                    self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
+                                        (-self.L @ [1, -1, 1], self.L @ [1, -1, 1]), axis=0)
+                            elif j == 2:
+                                if k == 0:
+                                    self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
+                                        (-self.L @ [1, 1, -1], self.L @ [1, 1, -1]), axis=0)
+                                elif k == 2:
+                                    self.outputbounds[k + j * 3 + i * 9, :] = np.concatenate(
+                                        (-self.L @ [1, 1, 1], self.L @ [1, 1, 1]), axis=0)
         return regions
 
+    def emptyoutputcons(self):
+        output_cons = np.concatenate((self.L, -self.L), axis=0)
+        output_cons = np.concatenate((np.zeros([self.n_dir*2, 1], dtype=np.double), output_cons), axis=1)
+        return output_cons
+
+    def comput_valOutputcons(self, cons):
+        return self.outputbounds[cons, :]
