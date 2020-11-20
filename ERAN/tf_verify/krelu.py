@@ -12,7 +12,6 @@ import multiprocessing
 import math
 
 from config import config
-
 """
 From reference manual:
 http://web.mit.edu/sage/export/cddlib-094b.dfsg/doc/cddlibman.ps
@@ -32,12 +31,9 @@ from ctypes import cdll
 from ctypes import *
 from py_sapo import py_sapo
 import numpy.ctypeslib
+from poly_approx import poly_approx
+boolean_flag=True
 
-array_2d_double = np.ctypeslib.ndpointer(dtype=np.uintp, ndim=1, flags='C')
-sapolib = cdll.LoadLibrary("../../Sapo/libsapolib.so")
-sapolib.computeSapo.argtypes = [c_int, c_int, c_int, array_2d_double, array_2d_double, POINTER(c_double),
-                                POINTER(c_double), array_2d_double]
-sapolib.computeSapo.restype = int
 
 
 def generate_linexpr0(offset, varids, coeffs):
@@ -60,6 +56,22 @@ def generate_linexpr0(offset, varids, coeffs):
 
 class Krelu:
     def __init__(self, cdd_hrepr):
+        array_2d_double = np.ctypeslib.ndpointer(dtype=np.uintp, ndim=1, flags='C')
+        #nikos: poly approximation
+        global boolean_flag
+        if config.poly_dynamic is False:
+            sapolib = cdll.LoadLibrary("../../Sapo/libsapolib.so")
+            sapolib.computeSapo.argtypes = [c_int, c_int, c_int, array_2d_double, array_2d_double, POINTER(c_double),
+                                POINTER(c_double), array_2d_double]
+        else:
+            sapolib=cdll.LoadLibrary("../../Sapo/libsapo_dyn_lib.so")
+            sapolib.computeSapo.argtypes = [c_int, c_int, c_int, array_2d_double, array_2d_double, POINTER(c_double),
+                                POINTER(c_double), array_2d_double,POINTER(c_float),c_int]
+            #if boolean_flag:
+            coeffs=poly_approx()
+            deg=coeffs.shape[0]
+            #    boolean_flag=False
+        sapolib.computeSapo.restype = int
         start = time.time()
 
         # krelu on variables in varsid
@@ -75,7 +87,7 @@ class Krelu:
         dim = input_cons.shape
         n_var = dim[1] - 1
         n_dir = dim[0] // 2
-
+        # added call to polyfit
         if n_var == 1:
             output_cons = np.concatenate((np.tanh(input_cons[:, [0]]), input_cons[:, [1]]), axis=1)
             n_cons = dim[0]
@@ -94,36 +106,49 @@ class Krelu:
             cA = (output_cons_temp.__array_interface__['data'][0]
                   + np.arange(output_cons_temp.shape[0]) * output_cons_temp.strides[0]).astype(np.uintp)
 
-            regions = modelSapo.createRegions()
-            for i in range(pow(3, n_var)):
-                temp_cdd = cdd_hrepr.copy()
-                for j in range(2*n_var):
-                    temp_cdd.append(regions[j + i * 2*n_var])
-                temp_cdd = cdd.Matrix(temp_cdd, number_type='fraction')
-                temp_cdd.rep_type = cdd.RepType.INEQUALITY
-                pts = cdd.Polyhedron(temp_cdd).get_generators()
-                pts_np_temp = np.array(pts, dtype=np.double)
 
-                if len(pts_np_temp) > 0:
-                    print('Region', i + 1, 'is not empty!')
-                    pts_np = pts_np_temp[::, 1::]
-                    if i in [0, 2, 6, 8, 18, 20, 24, 26]:
-                        n_cons = pow(3, n_var) - 1
-                        output_cons_val_temp = modelSapo.comput_valOutputcons(i)
-                        output_cons_temp = modelSapo.emptyoutputcons()
-                        output_cons_val = np.concatenate((output_cons_val, output_cons_val_temp), axis=0)
+       
+               
+            
+            if config.splitting:
+                regions = modelSapo.createRegions()
+                for i in range(pow(3, n_var)):
+                    temp_cdd = cdd_hrepr.copy()
+                    for j in range(2*n_var):
+                        temp_cdd.append(regions[j + i * 2*n_var])
+                    temp_cdd = cdd.Matrix(temp_cdd, number_type='fraction')
+                    temp_cdd.rep_type = cdd.RepType.INEQUALITY
+                    pts = cdd.Polyhedron(temp_cdd).get_generators()
+                    pts_np_temp = np.array(pts, dtype=np.double)
+                    
+                    if len(pts_np_temp) > 0:
+                        print('Region', i + 1, 'is not empty!')
+                        pts_np = pts_np_temp[::, 1::]
+                        if i in [0, 2, 6, 8, 18, 20, 24, 26]:
+                            n_cons = pow(3, n_var) - 1
+                            output_cons_val_temp = modelSapo.comput_valOutputcons(i)
+                            output_cons_temp = modelSapo.emptyoutputcons()
+                            output_cons_val = np.concatenate((output_cons_val, output_cons_val_temp), axis=0)
 
-                    else:
-                        # Reshape the input constraints
-                        pts_np = pts_np.transpose()
-                        val = L @ pts_np
-                        offp_temp = np.max(val, 1) #Lx <= b
-                        offm_temp = np.max(-val, 1) #-Lx <= b
+                        else:
 
-                        # Call sapo
-                        coffp = offp_temp.ctypes.data_as(POINTER(c_double))
-                        coffm = offm_temp.ctypes.data_as(POINTER(c_double))
-                        n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
+                            # Reshape the input constraints
+                            pts_np = pts_np.transpose()
+                            val = L @ pts_np
+                            offp_temp = np.max(val, 1) #Lx <= b
+                            offm_temp = np.max(-val, 1) #-Lx <= b
+
+                            # Call sapo
+                            coffp = offp_temp.ctypes.data_as(POINTER(c_double))
+                            coffm = offm_temp.ctypes.data_as(POINTER(c_double))
+
+    
+                            if config.poly_dynamic is False:
+                                n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
+                            else: # add coeffs
+                                c_coeffs=coeffs.ctypes.data_as(POINTER(c_float))
+                                n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA,c_coeffs,deg)
+
 
                         # Reshape the output constraints (restrict to [-1,1]^n_var)
                         # Ax + b >= 0
@@ -141,30 +166,49 @@ class Krelu:
                         # b7 -1 1
 
 
-                        if n_var == 2:
-                            output_cons_temp[[0, 1, n_dir, n_dir + 1], 0] = np.maximum(np.minimum(
-                                output_cons_temp[[0, 1, n_dir, n_dir + 1], 0], 1), -1)
-                            output_cons_temp[[2, 3, n_dir+2, n_dir+3], 0] = np.maximum(np.minimum(
-                                output_cons_temp[[2, 3, n_dir+2, n_dir+3], 0], 2), -2)
-                        elif n_var == 3:
-                            output_cons_temp[[0, 1, 2, n_dir, n_dir+1, n_dir+2], 0] = np.maximum(np.minimum(
-                                output_cons_temp[[0, 1, 2, n_dir, n_dir+1, n_dir+2], 0], 1), -1)
-                            output_cons_temp[[3, 4, 5, 6, 7, 8, n_dir + 3, n_dir + 4, n_dir + 5, n_dir + 6, n_dir + 7,
-                                              n_dir + 8], 0] = np.maximum(np.minimum(
-                                output_cons_temp[[3, 4, 5, 6, 7, 8, n_dir + 3, n_dir + 4, n_dir + 5, n_dir + 6, n_dir + 7,
-                                                  n_dir + 8], 0], 2),-2)
-                            output_cons_temp[
-                                [9, 10, 11, 12, n_dir + 9, n_dir + 10, n_dir + 11, n_dir + 12], 0] = np.maximum(np.minimum(
-                                output_cons_temp[[9, 10, 11, 12, n_dir + 9, n_dir + 10, n_dir + 11, n_dir + 12], 0], 3), -3)
+                            if config.sanity_check:
+                                if n_var == 2:
+                                    output_cons_temp[[0, 1, n_dir, n_dir + 1], 0] = np.maximum(np.minimum(
+                                        output_cons_temp[[0, 1, n_dir, n_dir + 1], 0], 1), -1)
+                                    output_cons_temp[[2, 3, n_dir+2, n_dir+3], 0] = np.maximum(np.minimum(
+                                        output_cons_temp[[2, 3, n_dir+2, n_dir+3], 0], 2), -2)
+                                elif n_var == 3:
+                                    output_cons_temp[[0, 1, 2, n_dir, n_dir+1, n_dir+2], 0] = np.maximum(np.minimum(
+                                        output_cons_temp[[0, 1, 2, n_dir, n_dir+1, n_dir+2], 0], 1), -1)
+                                    output_cons_temp[[3, 4, 5, 6, 7, 8, n_dir + 3, n_dir + 4, n_dir + 5, n_dir + 6, n_dir + 7,
+                                                    n_dir + 8], 0] = np.maximum(np.minimum(
+                                        output_cons_temp[[3, 4, 5, 6, 7, 8, n_dir + 3, n_dir + 4, n_dir + 5, n_dir + 6, n_dir + 7,
+                                                        n_dir + 8], 0], 2),-2)
+                                    output_cons_temp[
+                                        [9, 10, 11, 12, n_dir + 9, n_dir + 10, n_dir + 11, n_dir + 12], 0] = np.maximum(np.minimum(
+                                        output_cons_temp[[9, 10, 11, 12, n_dir + 9, n_dir + 10, n_dir + 11, n_dir + 12], 0], 3), -3)
+                            else:
+                                print('\nNo sanity check was performed\n')
 
-                        # Append the bounds
-                        output_cons_val = np.concatenate((output_cons_val, output_cons_temp[:, 0]), axis=0)
 
-            # Make the union of the output sets
-            output_cons_val = np.reshape(output_cons_val, (-1, n_cons))
-            output_cons_val = np.max(output_cons_val, 0)
-            output_cons = np.copy(output_cons_temp)
-            output_cons[:, 0] = output_cons_val
+                            # Append the bounds
+                            output_cons_val = np.concatenate((output_cons_val, output_cons_temp[:, 0]), axis=0)
+
+           
+                # Make the union of the output sets
+                output_cons_val = np.reshape(output_cons_val, (-1, n_cons))
+                output_cons_val = np.max(output_cons_val, 0)
+                output_cons = np.copy(output_cons_temp)
+                output_cons[:, 0] = output_cons_val
+            else:
+                # No splitting
+                # Call sapo
+              
+                offp_temp = modelSapo.offp
+                offm_temp = modelSapo.offm
+                coffp = offp_temp.ctypes.data_as(POINTER(c_double))
+                coffm = offm_temp.ctypes.data_as(POINTER(c_double))
+                n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
+                #output_cons_val = np.reshape(output_cons_temp, (-1, n_cons))
+                #output_cons_val = np.max(output_cons_val, 0)
+                output_cons = np.copy(output_cons_temp)
+               # output_cons[:, 0] = output_cons_val
+
 
         # Collect all the input-output constraints
         elaborate_input_cons = np.concatenate((input_cons, np.zeros([dim[0], n_var], dtype=np.double)), axis=1)
@@ -225,8 +269,8 @@ class Krelu:
 
         # normalize constraints for numerical stability
         # more info: http://files.gurobi.com/Numerics.pdf
-        absmax = np.absolute(cons).max(axis=1)
-        self.cons = cons / absmax[:, None]
+        #absmax = np.absolute(cons).max(axis=1)
+        #self.cons = cons / absmax[:, None]
 
         end = time.time()
 

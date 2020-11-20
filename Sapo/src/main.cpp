@@ -21,6 +21,7 @@
 #include "Quadcopter.h"
 #include "HyperTan3D.h"
 #include "HyperTan.h"
+#include "HyperTan_custom.h"
 
 #include "SIRp.h"
 #include "Influenza.h"
@@ -82,7 +83,11 @@ int main(int argc,char** argv){
 
    B = new Bundle(L,offp,offm,T);
 
-  reach_models.push_back(new HyperTan3D(B, dim_sys));     reach_steps.push_back(1);
+//Nikos
+  vector< float > p_coeff {0.9568,0, -0.2107,0,0.02354};
+  int deg=p_coeff.size();
+  //reach_models.push_back(new HyperTan3D(B, dim_sys));     reach_steps.push_back(1);
+  reach_models.push_back(new HyperTan_custom(B, dim_sys, p_coeff, deg));     reach_steps.push_back(1);
 
   Flowpipe* flowpipe;
   // Compute reach sets

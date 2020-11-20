@@ -4,3 +4,4 @@
 /tf_verify/filename.csv
 /tf_verify/__pycache__/*
 /tf_verify/*.mps
+/tf_verify/eranpath

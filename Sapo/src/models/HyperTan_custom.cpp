@@ -8,11 +8,11 @@
 
 #include "HyperTan_custom.h"
 
- HyperTan_custom::HyperTan_custom(Bundle *B, int dim_sys, double* coeff, int deg){
+ HyperTan_custom::HyperTan_custom(Bundle *B, int dim_sys, vector <float> coeff, int deg){
 
 
    // Initialize model
-   strcpy(this->name,"HyperTan3D");
+   strcpy(this->name,"HyperTan_custom");
 
    // List of state variables
    symbol x1("x1"), x2("x2"), x3("x3");

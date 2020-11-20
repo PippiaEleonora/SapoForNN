@@ -50,3 +50,11 @@ class config:
 
     # GPU options
     device = Device.CPU # Which device Deeppoly should run on
+
+    # added by nikos for experiments
+    sanity_check = True
+    splitting = True
+    lower_bound=-1
+    upper_bound=1
+    poly_dynamic= False
+    poly_order=5

@@ -12,7 +12,7 @@ using namespace std;
 
 
 extern "C" {
-	int computeSapo(int dim_sys, int num_dirs, int num_temps, double **cL, double **cT, double *coffp, double *coffm, double **A){
+	int computeSapo(int dim_sys, int num_dirs, int num_temps, double **cL, double **cT, double *coffp, double *coffm, double **A, float *poly_coeff,int poly_deg){
 		// Sapo's options
 
   sapo_opt options;
@@ -51,8 +51,14 @@ extern "C" {
   Bundle *B;
   B = new Bundle(L,offp,offm,T);
 
+  //Nikos
+  vector< float > p_coeff (poly_deg,0);
+  for(int i=0; i<poly_deg; i++){
+	p_coeff[i] = poly_coeff[i];
+  }
+
   // Load modles
-  Model* reach_model = new HyperTan3D(B, dim_sys);
+  Model* reach_model = new HyperTan_custom(B, dim_sys,p_coeff,poly_deg);
   int reach_steps = 1;
 
   // Compute reach sets

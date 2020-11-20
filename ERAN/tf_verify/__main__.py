@@ -302,6 +302,13 @@ parser.add_argument('--input_box', default=config.input_box,  help='input box to
 parser.add_argument('--output_constraints', default=config.output_constraints, help='custom output constraints to check')
 parser.add_argument('--normalized_region', type=str2bool, default=config.normalized_region, help='Whether to normalize the adversarial region')
 
+# added by nikos for experiments
+parser.add_argument('--sanity_check', type=str2bool, default=config.sanity_check, help='perform sanity check')
+parser.add_argument('--splitting',type=str2bool,default=config.splitting, help='Use splitting for polynomials')
+parser.add_argument('--lower_bound',type=float,default=config.lower_bound, help='Choose lower bound for NN inputs')
+parser.add_argument('--upper_bound',type=float,default=config.upper_bound, help='Choose upper bound for NN inputs')
+parser.add_argument('--poly_dynamic',type=str2bool,default=config.poly_dynamic,help="Use hard-coded polynomial or dynamic")
+parser.add_argument('--poly_order',type=int,default=config.poly_order,help="choose polynomial order for tansig approx.")
 # Logging options
 parser.add_argument('--logdir', type=str, default=None, help='Location to save logs to. If not specified, logs are not saved and emitted to stdout')
 parser.add_argument('--logname', type=str, default=None, help='Directory of log files in `logdir`, if not specified timestamp is used')
@@ -1088,8 +1095,8 @@ else:
     print('analysis precision ',verified_images,'/ ', correctly_classified_images)
 '''
 
-specLB = -1*np.ones(num_pixels, dtype="double")
-specUB = 1*np.ones(num_pixels, dtype="double")
+specLB = config.lower_bound*np.ones(num_pixels, dtype="double")
+specUB = config.upper_bound*np.ones(num_pixels, dtype="double")
 
 start = time.time()
 label,nn,nlb_ERAN,nub_ERAN,_,_ = eran.analyze_box(specLB, specUB, 'deeppoly', config.timeout_lp, config.timeout_milp, config.use_default_heuristic)#label=label, prop=prop)

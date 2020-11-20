@@ -16,7 +16,7 @@ class HyperTan_custom : public Model {
 private:
 
 public:
-	HyperTan_custom(Bundle *B, int dim_sys, double* coeff, int deg);
+	HyperTan_custom(Bundle *B, int dim_sys, vector <float> coeff, int deg);
 };
 
 #endif /* HYPERTAN_CUSTOM_H_ */
