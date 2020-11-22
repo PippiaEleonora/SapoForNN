@@ -58,3 +58,4 @@ class config:
     upper_bound=1
     poly_dynamic= False
     poly_order=5
+    num_inputs=float('NaN')

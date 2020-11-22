@@ -309,6 +309,8 @@ parser.add_argument('--lower_bound',type=float,default=config.lower_bound, help=
 parser.add_argument('--upper_bound',type=float,default=config.upper_bound, help='Choose upper bound for NN inputs')
 parser.add_argument('--poly_dynamic',type=str2bool,default=config.poly_dynamic,help="Use hard-coded polynomial or dynamic")
 parser.add_argument('--poly_order',type=int,default=config.poly_order,help="choose polynomial order for tansig approx.")
+parser.add_argument('--num_inputs',type=int,default=config.num_inputs,help="number of inputs.")
+
 # Logging options
 parser.add_argument('--logdir', type=str, default=None, help='Location to save logs to. If not specified, logs are not saved and emitted to stdout')
 parser.add_argument('--logname', type=str, default=None, help='Directory of log files in `logdir`, if not specified timestamp is used')
@@ -411,8 +413,12 @@ else:
     if is_onnx:
         model, is_conv = read_onnx_net(netname)
     else:
-        num_pixels = 1#784
-        model, is_conv, means, stds = read_tensorflow_net(netname, num_pixels, is_trained_with_pytorch)
+        num_pixels = 2#784
+        if np.isnan(config.num_inputs):
+            num_inputs=num_pixels
+        else:
+            num_inputs=config.num_inputs
+        model, is_conv, means, stds = read_tensorflow_net(netname, num_inputs, is_trained_with_pytorch)
     eran = ERAN(model, is_onnx=is_onnx)
 '''
 if not is_trained_with_pytorch:
@@ -1095,9 +1101,16 @@ else:
     print('analysis precision ',verified_images,'/ ', correctly_classified_images)
 '''
 
-specLB = config.lower_bound*np.ones(num_pixels, dtype="double")
-specUB = config.upper_bound*np.ones(num_pixels, dtype="double")
 
+specLB = config.lower_bound*np.ones(num_inputs, dtype="double")
+specUB = config.upper_bound*np.ones(num_inputs, dtype="double")
+'''
+for i in range(len(specLB)):
+    specLB[i]=-2*np.random.randn(1)-3
+    specUB[i]=1*np.random.randn(1)+4
+print(specLB)
+print(specUB)
+'''
 start = time.time()
 label,nn,nlb_ERAN,nub_ERAN,_,_ = eran.analyze_box(specLB, specUB, 'deeppoly', config.timeout_lp, config.timeout_milp, config.use_default_heuristic)#label=label, prop=prop)
 end = time.time()
