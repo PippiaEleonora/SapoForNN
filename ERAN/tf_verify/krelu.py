@@ -60,18 +60,20 @@ class Krelu:
         #nikos: poly approximation
         global boolean_flag
         if config.poly_dynamic is False:
-            sapolib = cdll.LoadLibrary("../../Sapo/libsapolib.so")
-            sapolib.computeSapo.argtypes = [c_int, c_int, c_int, array_2d_double, array_2d_double, POINTER(c_double),
+            sapolib = cdll.LoadLibrary("../../Sapo/libsapo_dyn_lib.so")
+            sapolib.computeSapo_small.argtypes = [c_int, c_int, c_int, array_2d_double, array_2d_double, POINTER(c_double),
                                 POINTER(c_double), array_2d_double]
         else:
             sapolib=cdll.LoadLibrary("../../Sapo/libsapo_dyn_lib.so")
-            sapolib.computeSapo.argtypes = [c_int, c_int, c_int, array_2d_double, array_2d_double, POINTER(c_double),
+            sapolib.computeSapo_many.argtypes = [c_int, c_int, c_int, array_2d_double, array_2d_double, POINTER(c_double),
                                 POINTER(c_double), array_2d_double,POINTER(c_float),c_int]
             #if boolean_flag:
             coeffs=poly_approx()
             deg=coeffs.shape[0]
             #    boolean_flag=False
-        sapolib.computeSapo.restype = int
+        sapolib.computeSapo_small.restype = int
+        sapolib.computeSapo_many.restype = int
+
         start = time.time()
 
         # krelu on variables in varsid
@@ -144,10 +146,10 @@ class Krelu:
 
     
                             if config.poly_dynamic is False:
-                                n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
+                                n_cons = sapolib.computeSapo_small(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
                             else: # add coeffs
                                 c_coeffs=coeffs.ctypes.data_as(POINTER(c_float))
-                                n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA,c_coeffs,deg)
+                                n_cons = sapolib.computeSapo_many(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA,c_coeffs,deg)
 
 
                         # Reshape the output constraints (restrict to [-1,1]^n_var)
@@ -203,7 +205,12 @@ class Krelu:
                 offm_temp = modelSapo.offm
                 coffp = offp_temp.ctypes.data_as(POINTER(c_double))
                 coffm = offm_temp.ctypes.data_as(POINTER(c_double))
-                n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
+                if config.poly_dynamic is False:
+                    n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
+                else: # add coeffs
+                    c_coeffs=coeffs.ctypes.data_as(POINTER(c_float))
+                    n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA,c_coeffs,deg)
+
                 #output_cons_val = np.reshape(output_cons_temp, (-1, n_cons))
                 #output_cons_val = np.max(output_cons_val, 0)
                 output_cons = np.copy(output_cons_temp)

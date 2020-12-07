@@ -25,7 +25,9 @@ def poly_approx():
     
     #print("\n The polynomial is a0+a1*x+a2*x^2+a3*x^3...\n\n",coeffs)
     #print("\n The polynomial order is {}.\n".format(config.poly_order))
+
     ffit=poly.polyval(x_poly,coeffs,".")
+    '''
     plt.plot(x_poly,ffit,label="poly")
     plt.plot(x_poly,y_poly,marker="o",label="original",linestyle="none")
     #ffit=poly.Polynomial(coeffs)
@@ -36,4 +38,5 @@ def poly_approx():
     plt.ylabel("tanh(x)")
     plt.show(block=False)
     #print(type(coeffs))
+    '''
     return coeffs
