@@ -94,12 +94,12 @@ class Krelu:
             output_cons = np.concatenate((np.tanh(input_cons[:, [0]]), input_cons[:, [1]]), axis=1)
             n_cons = dim[0]
         else:
-            modelSapo = py_sapo(n_var)
+            modelSapo = py_sapo(n_var, n_dir, input_cons)
             output_cons_temp = np.empty([dim[0], n_var + 1], dtype=np.double)
             output_cons_val = np.empty(0, dtype=np.double)
 
             [L, T, n_bundle] = modelSapo.LTmatrix()
-            modelSapo.offset(input_cons, dim[0])
+            #modelSapo.offset(input_cons, dim[0])
 
             cL = (L.__array_interface__['data'][0]
                   + np.arange(L.shape[0]) * L.strides[0]).astype(np.uintp)
@@ -127,9 +127,9 @@ class Krelu:
                         print('Region', i + 1, 'is not empty!')
                         pts_np = pts_np_temp[::, 1::]
                         if i in [0, 2, 6, 8, 18, 20, 24, 26]:
-                            n_cons = pow(3, n_var) - 1
+                            n_cons = 2*n_dir #pow(3, n_var) - 1
                             output_cons_val_temp = modelSapo.comput_valOutputcons(i)
-                            output_cons_temp = modelSapo.emptyoutputcons()
+                            output_cons = modelSapo.emptyoutputcons()
                             output_cons_val = np.concatenate((output_cons_val, output_cons_val_temp), axis=0)
 
                         else:
@@ -149,7 +149,7 @@ class Krelu:
                                 n_cons = sapolib.computeSapo_small(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
                             else: # add coeffs
                                 c_coeffs=coeffs.ctypes.data_as(POINTER(c_float))
-                                n_cons = sapolib.computeSapo_many(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA,c_coeffs,deg)
+                                n_cons = sapolib.computeSapo_many(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA, c_coeffs, deg)
 
 
                         # Reshape the output constraints (restrict to [-1,1]^n_var)
@@ -190,12 +190,11 @@ class Krelu:
 
                             # Append the bounds
                             output_cons_val = np.concatenate((output_cons_val, output_cons_temp[:, 0]), axis=0)
-
+                            output_cons = np.copy(output_cons_temp)
            
                 # Make the union of the output sets
                 output_cons_val = np.reshape(output_cons_val, (-1, n_cons))
                 output_cons_val = np.max(output_cons_val, 0)
-                output_cons = np.copy(output_cons_temp)
                 output_cons[:, 0] = output_cons_val
             else:
                 # No splitting
@@ -206,10 +205,10 @@ class Krelu:
                 coffp = offp_temp.ctypes.data_as(POINTER(c_double))
                 coffm = offm_temp.ctypes.data_as(POINTER(c_double))
                 if config.poly_dynamic is False:
-                    n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
-                else: # add coeffs
-                    c_coeffs=coeffs.ctypes.data_as(POINTER(c_float))
-                    n_cons = sapolib.computeSapo(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA,c_coeffs,deg)
+                    n_cons = sapolib.computeSapo_small(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA)
+                else:  # add coeffs
+                    c_coeffs = coeffs.ctypes.data_as(POINTER(c_float))
+                    n_cons = sapolib.computeSapo_many(n_var, n_dir, n_bundle, cL, cT, coffp, coffm, cA, c_coeffs, deg)
 
                 #output_cons_val = np.reshape(output_cons_temp, (-1, n_cons))
                 #output_cons_val = np.max(output_cons_val, 0)
@@ -324,10 +323,16 @@ def get_ineqs_zono(varsid):
 
     # Get bounds on linear expressions over variables before relu
     # Order of coefficients determined by logic here
-    for coeffs in itertools.product([-1, 0, 1], repeat=len(varsid)):
-        if all(c == 0 for c in coeffs):
-            continue
-
+    # for coeffs in itertools.product([-2, -1, 0, 1, 2], repeat=len(varsid)):
+    #     if all((abs(c) == 2 or c == 0) for c in coeffs): #ELE for redundant constraints with 2,1
+    #         continue
+    for coeffs in itertools.product([-2, -1, 0, 1, 2], repeat=len(varsid)):
+        if len(varsid) == 1:
+            if coeffs[0] == 0:
+                continue
+        else:
+            if all((abs(c) == 2 or c == 0) for c in coeffs):  # ELE for redundant constraints with 2,1
+                continue
         linexpr0 = generate_linexpr0(Krelu.offset, varsid, coeffs)
         element = elina_abstract0_assign_linexpr_array(Krelu.man, True, Krelu.element, Krelu.tdim, linexpr0, 1, None)
         bound_linexpr = elina_abstract0_bound_dimension(Krelu.man, Krelu.element, Krelu.offset + Krelu.length)
@@ -574,35 +579,51 @@ def encode_kactivation_cons(nn, man, element, offset, layerno, length, lbi, ubi,
     else:
         #    krelu_results = []
         total_size = 0
+        listCoeff = [-2, -1, 0, 1, 2]
         for varsid in krelu_args:
-            size = 3 ** len(varsid) - 1
+            if len(varsid) == 1:
+                size = len(listCoeff) ** len(varsid) - 1
+            else:
+                size = len(listCoeff) ** len(varsid) - (3 ** len(varsid))
             total_size = total_size + size
 
         linexpr0 = elina_linexpr0_array_alloc(total_size)
-        i = 0
         # HERE we should define our expressions
+        i = -1
         for varsid in krelu_args:
-            for coeffs in itertools.product([-1, 0, 1], repeat=len(varsid)):
-                if all(c == 0 for c in coeffs):
-                    continue
+            for coeffs in itertools.product(listCoeff, repeat=len(varsid)):
+                i = i + 1
+                if len(varsid) == 1:
+                    if coeffs[0] == 0:
+                        i = i - 1
+                        continue
+                else:
+                    if all((abs(c) == 2 or c == 0) for c in coeffs): #ELE for redundant constraints with 2,1
+                        i = i - 1
+                        continue
 
                 linexpr0[i] = generate_linexpr0(offset, varsid, coeffs)
-                i = i + 1
         upper_bound = get_upper_bound_for_linexpr0(man, element, linexpr0, total_size, layerno)
-        i = 0
+        i = -1
         cdd_hrepr_array = []
         bound_val = []
         for varsid in krelu_args:
             cdd_hrepr = []
-            for coeffs in itertools.product([-1, 0, 1], repeat=len(varsid)):
-                if all(c == 0 for c in coeffs):
-                    continue
+            for coeffs in itertools.product(listCoeff, repeat=len(varsid)):
+                i = i + 1
+                if len(varsid) == 1:
+                    if coeffs[0] == 0:
+                        i = i - 1
+                        continue
+                else:
+                    if all((abs(c) == 2 or c == 0) for c in coeffs):  # ELE for redundant constraints with 2,1
+                        i = i - 1
+                        continue
                 cdd_hrepr.append([upper_bound[i]] + [-c for c in coeffs])
                 bound_val.append(upper_bound[i])  # ELE
-                # print("UPPER BOUND ", upper_bound[i], "COEFF ", coeffs)
-                # if len(varsid)>1:
-                #    print("LB ", lbi[varsid[0]],lbi[varsid[1]], "UB ", ubi[varsid[0]], ubi[varsid[1]])
-                i = i + 1
+            #     print("UPPER BOUND ", upper_bound[i], "COEFF ", coeffs)
+            # if len(varsid)>1:
+            #     print("LB ", lbi[varsid[0]],lbi[varsid[1]], "UB ", ubi[varsid[0]], ubi[varsid[1]])
             cdd_hrepr_array.append(cdd_hrepr)
 
     with multiprocessing.Pool(config.numproc) as pool:  # here is entering in 'get_orthant_points'
