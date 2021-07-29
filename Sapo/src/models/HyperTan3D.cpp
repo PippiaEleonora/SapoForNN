@@ -35,10 +35,7 @@
    dx1 = dx1 + coeff[0]*pow(x1,1) + coeff[1]*pow(x1,3) + coeff[2]*pow(x1,5);
    dx2 = dx2 + coeff[0]*pow(x2,1) + coeff[1]*pow(x2,3) + coeff[2]*pow(x2,5);
    dx3 = dx3 + coeff[0]*pow(x3,1) + coeff[1]*pow(x3,3) + coeff[2]*pow(x3,5);
-   if(dim_sys==1){
-   	vars = x1;
-	dyns = dx1;
-   } else if(dim_sys==2){
+   if(dim_sys==2){
 	vars = {x1, x2};
 	dyns = {dx1,dx2};
    } else if(dim_sys==3){

@@ -1,6 +1,20 @@
-'''
-@author: Adrian Hoffmann
-'''
+"""
+  Copyright 2020 ETH Zurich, Secure, Reliable, and Intelligent Systems Lab
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+"""
+
+
 import tensorflow as tf
 import numpy as np
 from tensorflow.python.keras.engine.sequential import Sequential
@@ -35,6 +49,8 @@ def calculate_padding(padding_str, image_shape, filter_shape, strides):
 
 	pad_top = 0
 	pad_left = 0
+	pad_bottom = 0
+	pad_right = 0
 	if not is_valid_padding:
 		if image_shape[0] % strides[0] == 0:
 			tmp = filter_shape[0] - strides[0]
@@ -49,9 +65,11 @@ def calculate_padding(padding_str, image_shape, filter_shape, strides):
 			tmp = filter_shape[1] - (image_shape[2] % strides[1])
 			pad_along_width = max(tmp, 0)
 		pad_top = int(pad_along_height / 2)
+		pad_bottom = int(pad_along_height - pad_top)
 
 		pad_left = int(pad_along_width / 2)
-	return pad_top, pad_left
+		pad_right = int(pad_along_width - pad_top)
+	return pad_top, pad_left, pad_bottom, pad_right
 
 
 class TFTranslator:
@@ -63,7 +81,7 @@ class TFTranslator:
 		This constructor takes a reference to a TensorFlow Operation or Tensor or Keras model and then applies the two TensorFlow functions
 		graph_util.convert_variables_to_constants and graph_util.remove_training_nodes to cleanse the graph of any nodes that are linked to training. This leaves us with 
 		the nodes you need for inference. 
-		In the resulting graph there should only be tf.Operations left that have one of the following types [Const, MatMul, Add, BiasAdd, Conv2D, Reshape, MaxPool, AveragePool, Placeholder, Relu, Sigmoid, Tanh]
+		In the resulting graph there should only be tf.Operations left that have one of the following types [Const, MatMul, Add, BiasAdd, Conv2D, Reshape, MaxPool, AveragePool, Placeholder, Relu, Sigmoid, Tanh, LeakyRelu]
 		If the input should be a Keras model we will ignore operations with type Pack, Shape, StridedSlice, and Prod such that the Flatten layer can be used.
 		
 		Arguments
@@ -128,11 +146,12 @@ class TFTranslator:
 		reshape_map = {}
 		operations_to_be_ignored = ["Reshape", "Pack", "Shape", "StridedSlice", "Prod", "ConcatV2"]
 		operations_to_be_ignored_without_reshape = ["NoOp", "Assign", "Const", "RestoreV2", "SaveV2", "IsVariableInitialized", "Identity"]
-
+		
 		with tf.Graph().as_default() as graph:
 			with tf.Session() as sess:
 				self.sess = sess
 				tf.import_graph_def(self.graph_def)
+				#print("Operations ", graph.get_operations())
 				for op in graph.get_operations():
 					if op.type in operations_to_be_ignored_without_reshape:
 						continue
@@ -182,20 +201,20 @@ class TFTranslator:
 						else:
 							assert 0, "this bias add doesn't meet our assumption (bias is constant)"
 					elif op.type == "Conv2D":
-						filters, image_shape, strides, pad_top, pad_left = self.conv2d_resources(op)
-						deeppoly_res = (filters, image_shape, strides, pad_top, pad_left) + in_out_info
+						filters, image_shape, strides, pad_top, pad_left, pad_bottom, pad_right = self.conv2d_resources(op)
+						deeppoly_res = (filters, image_shape, strides, pad_top, pad_left, pad_bottom, pad_right) + in_out_info
 						deepzono_res = deeppoly_res 
 						operation_resources.append({'deepzono':deepzono_res, 'deeppoly':deeppoly_res})
 					elif op.type == "MaxPool" or op.type == "AvgPool":
-						image_shape, window_size, strides, pad_top, pad_left = self.pool_resources(op)
-						deeppoly_res =  (image_shape, window_size, strides, pad_top, pad_left) + in_out_info
+						image_shape, window_size, strides, pad_top, pad_left, pad_bottom, pad_right = self.pool_resources(op)
+						deeppoly_res =  (image_shape, window_size, strides, pad_top, pad_left, pad_bottom, pad_right) + in_out_info
 						deepzono_res = deeppoly_res
 						operation_resources.append({'deepzono':deepzono_res, 'deeppoly':deeppoly_res})
 					elif op.type in ["Placeholder", "PlaceholderWithDefault"]:
 						deeppoly_res = in_out_info
 						deepzono_res = in_out_info
 						operation_resources.append({'deepzono':deepzono_res, 'deeppoly':deeppoly_res})
-					elif op.type in ["Relu", "Sigmoid", "Tanh", "Softmax"]:
+					elif op.type in ["Relu", "Sigmoid", "Tanh", "Sign", "Softmax", "LeakyRelu"]:
 						deeppoly_res = self.nonlinearity_resources(op) + in_out_info
 						deepzono_res = deeppoly_res
 						operation_resources.append({'deepzono':deepzono_res, 'deeppoly':deeppoly_res})
@@ -262,7 +281,8 @@ class TFTranslator:
 			addend = self.sess.run(right)
 		return (addend,)
 		
-		
+	
+	    	
 	def conv2d_resources(self, op):
 		"""
 		Extracts the filter, the stride of the filter, and the padding from op as well as the shape of the input coming into op
@@ -285,8 +305,8 @@ class TFTranslator:
 		image_shape = tensorshape_to_intlist(image.shape)[1:]
 		strides     = op.get_attr('strides')[1:3]
 		padding_str = op.get_attr('padding').decode('utf-8')
-		pad_top, pad_left = calculate_padding(padding_str, image_shape, filters.shape, strides)
-		return filters, image_shape, strides, pad_top, pad_left
+		pad_top, pad_left, pad_bottom, pad_right = calculate_padding(padding_str, image_shape, filters.shape, strides)
+		return filters, image_shape, strides, pad_top, pad_left, pad_bottom, pad_right
 	
 	
 	def pool_resources(self, op):
@@ -309,9 +329,9 @@ class TFTranslator:
 		window_size = op.get_attr('ksize')[1:3]
 		strides     = op.get_attr('strides')[1:3]
 		padding_str = op.get_attr('padding').decode('utf-8')
-		pad_top, pad_left = calculate_padding(padding_str, image_shape, window_size, strides)
+		pad_top, pad_left, pad_bottom, pad_right = calculate_padding(padding_str, image_shape, window_size, strides)
 
-		return image_shape, window_size, strides, pad_top, pad_left
+		return image_shape, window_size, strides, pad_top, pad_left, pad_bottom, pad_right
 	
 	
 	def nonlinearity_resources(self, op):

@@ -413,12 +413,12 @@ else:
     if is_onnx:
         model, is_conv = read_onnx_net(netname)
     else:
-        num_pixels = 2#784
+        num_pixels = 784
         if np.isnan(config.num_inputs):
             num_inputs=num_pixels
         else:
             num_inputs=config.num_inputs
-        model, is_conv, means, stds = read_tensorflow_net(netname, num_inputs, is_trained_with_pytorch)
+        model, is_conv, means, stds = read_tensorflow_net(netname, num_inputs, is_trained_with_pytorch, (domain == 'gpupoly' or domain == 'refinegpupoly'))
     eran = ERAN(model, is_onnx=is_onnx)
 '''
 if not is_trained_with_pytorch:

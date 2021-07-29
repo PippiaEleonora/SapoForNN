@@ -1,8 +1,26 @@
+"""
+  Copyright 2020 ETH Zurich, Secure, Reliable, and Intelligent Systems Lab
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+"""
+
+
 from elina_scalar import *
 from elina_dimension import *
 from elina_linexpr0 import *
 from elina_abstract0 import *
 from fppoly import *
+from fconv import *
 
 import numpy as np
 import cdd
@@ -54,10 +72,14 @@ def generate_linexpr0(offset, varids, coeffs):
     return linexpr0
 
 
-class Krelu:
-    def __init__(self, cdd_hrepr):
+class KAct:
+    def __init__(self, cdd_hrepr, approx=True):
+        assert KAct.type in ["ReLU", "Tanh", "Sigmoid"]
+        self.k = len(cdd_hrepr[0]) - 1
+        self.cdd_hrepr = np.array(cdd_hrepr)
+
+        # nikos: poly approximation
         array_2d_double = np.ctypeslib.ndpointer(dtype=np.uintp, ndim=1, flags='C')
-        #nikos: poly approximation
         global boolean_flag
         if config.poly_dynamic is False:
             sapolib = cdll.LoadLibrary("../../Sapo/libsapo_dyn_lib.so")
@@ -76,7 +98,7 @@ class Krelu:
 
         start = time.time()
 
-        # krelu on variables in varsid
+        # KAct on variables in varsid
         # self.varsid = varsid
         self.k = len(cdd_hrepr[0]) - 1
         self.cdd_hrepr = cdd_hrepr
@@ -279,7 +301,7 @@ class Krelu:
         #self.cons = cons / absmax[:, None]
 
         end = time.time()
-
+        self.cons = cons
         return
 
     def get_orthant_points(self, cdd_hrepr):
@@ -307,11 +329,11 @@ class Krelu:
         return pts
 
 
-def make_krelu_obj(varsid):
-    return Krelu(varsid)
+def make_KAct_obj(varsid):
+    return KAct(varsid)
 
 
-class Krelu_expr:
+class KAct_expr:
     def __init__(self, expr, varsid, bound):
         self.expr = expr
         self.varsid = varsid
@@ -333,9 +355,9 @@ def get_ineqs_zono(varsid):
         else:
             if all((abs(c) == 2 or c == 0) for c in coeffs):  # ELE for redundant constraints with 2,1
                 continue
-        linexpr0 = generate_linexpr0(Krelu.offset, varsid, coeffs)
-        element = elina_abstract0_assign_linexpr_array(Krelu.man, True, Krelu.element, Krelu.tdim, linexpr0, 1, None)
-        bound_linexpr = elina_abstract0_bound_dimension(Krelu.man, Krelu.element, Krelu.offset + Krelu.length)
+        linexpr0 = generate_linexpr0(KAct.offset, varsid, coeffs)
+        element = elina_abstract0_assign_linexpr_array(KAct.man, True, KAct.element, KAct.tdim, linexpr0, 1, None)
+        bound_linexpr = elina_abstract0_bound_dimension(KAct.man, KAct.element, KAct.offset + KAct.length)
         upper_bound = bound_linexpr.contents.sup.contents.val.dbl
         cdd_hrepr.append([upper_bound] + [-c for c in coeffs])
     return cdd_hrepr
@@ -375,10 +397,10 @@ def calculate_nnz(constraint, k):
     return nnz
 
 
-def compute_expr_bounds_from_candidates(krelu_inst, varsid, bound_expr, lbi, ubi, candidate_bounds, is_lower):
+def compute_expr_bounds_from_candidates(KAct_inst, varsid, bound_expr, lbi, ubi, candidate_bounds, is_lower):
     assert not is_lower
-    k = krelu_inst.k
-    cons = krelu_inst.cons
+    k = KAct_inst.k
+    cons = KAct_inst.cons
     for j in range(k):
         candidate_rows = candidate_bounds[j]
         if is_lower:
@@ -404,8 +426,8 @@ def compute_expr_bounds_from_candidates(krelu_inst, varsid, bound_expr, lbi, ubi
         assert divisor > 0
         # if divisor == 0:
         #    print("ROW ",best_row)
-        #    print("CONS ", cons, krelu_inst)
-        #    print("CDD ", krelu_inst.cdd_hrepr)
+        #    print("CONS ", cons, KAct_inst)
+        #    print("CDD ", KAct_inst.cdd_hrepr)
         #    print("j ", j, "lb ", lbi[varsid[0]], lbi[varsid[1]], "ub ", ubi[varsid[0]], ubi[varsid[1]] )
         #    print("candidates ", len(candidate_rows))
         res[0] = best_row[0] / divisor
@@ -420,13 +442,13 @@ def compute_expr_bounds_from_candidates(krelu_inst, varsid, bound_expr, lbi, ubi
         if varsid[j] in bound_expr.keys():
             current_bound = bound_expr[varsid[j]].bound
             if (is_lower and best_bound > current_bound) or ((not is_lower) and best_bound < current_bound):
-                bound_expr[varsid[j]] = Krelu_expr(res, varsid, best_bound)
+                bound_expr[varsid[j]] = KAct_expr(res, varsid, best_bound)
         else:
-            bound_expr[varsid[j]] = Krelu_expr(res, varsid, best_bound)
+            bound_expr[varsid[j]] = KAct_expr(res, varsid, best_bound)
 
 
-def compute_expr_bounds(krelu_inst, varsid, lower_bound_expr, upper_bound_expr, lbi, ubi):
-    cons = krelu_inst.cons
+def compute_expr_bounds(KAct_inst, varsid, lower_bound_expr, upper_bound_expr, lbi, ubi):
+    cons = KAct_inst.cons
     nbrows = len(cons)
     k = len(varsid)
     candidate_lower_bounds = []
@@ -434,18 +456,18 @@ def compute_expr_bounds(krelu_inst, varsid, lower_bound_expr, upper_bound_expr, 
     for j in range(k):
         candidate_lower_bounds.append([])
         candidate_upper_bounds.append([])
-    lin_size = len(krelu_inst.lin_set)
+    lin_size = len(KAct_inst.lin_set)
     new_cons = np.zeros((lin_size, 2 * k + 1), dtype=np.float64)
     lin_count = 0
     for i in range(nbrows):
-        if i in krelu_inst.lin_set:
+        if i in KAct_inst.lin_set:
             row = cons[i]
             for j in range(2 * k + 1):
                 new_cons[lin_count][j] = -row[j]
             lin_count = lin_count + 1
 
-    krelu_inst.cons = np.vstack([cons, new_cons])
-    cons = krelu_inst.cons
+    KAct_inst.cons = np.vstack([cons, new_cons])
+    cons = KAct_inst.cons
     nbrows = len(cons)
     for i in range(nbrows):
         row = cons[i]
@@ -454,8 +476,8 @@ def compute_expr_bounds(krelu_inst, varsid, lower_bound_expr, upper_bound_expr, 
                 candidate_upper_bounds[j].append(i)
             elif row[j + k + 1] > 0:
                 candidate_lower_bounds[j].append(i)
-    # compute_expr_bounds_from_candidates(krelu_inst, varsid, lower_bound_expr, lbi, ubi, candidate_lower_bounds, True)
-    compute_expr_bounds_from_candidates(krelu_inst, varsid, upper_bound_expr, lbi, ubi, candidate_upper_bounds, False)
+    # compute_expr_bounds_from_candidates(KAct_inst, varsid, lower_bound_expr, lbi, ubi, candidate_lower_bounds, True)
+    compute_expr_bounds_from_candidates(KAct_inst, varsid, upper_bound_expr, lbi, ubi, candidate_upper_bounds, False)
 
 
 def get_sparse_cover_for_group_of_vars(vars):
@@ -488,24 +510,24 @@ def sparse_heuristic_with_cutoff(all_vars, areas):
 
     vars_above_cutoff = [i for i in all_vars if areas[i] >= cutoff]
 
-    krelu_args = []
+    KAct_args = []
     while len(vars_above_cutoff) > 0:
         grouplen = min(sparse_n, len(vars_above_cutoff))
         group = vars_above_cutoff[:grouplen]
         vars_above_cutoff = vars_above_cutoff[grouplen:]
         if grouplen <= K:
-            krelu_args.append(group)
+            KAct_args.append(group)
         else:
             group_args = get_sparse_cover_for_group_of_vars(group)
 
             for arg in group_args:
-                krelu_args.append(arg)
+                KAct_args.append(arg)
 
     # Also just apply 1-relu for every var.
     for var in all_vars:
-        krelu_args.append([var])
+        KAct_args.append([var])
 
-    return krelu_args
+    return KAct_args
 
 
 def encode_kactivation_cons(nn, man, element, offset, layerno, length, lbi, ubi, relu_groups, need_pop, domain,
@@ -530,7 +552,7 @@ def encode_kactivation_cons(nn, man, element, offset, layerno, length, lbi, ubi,
     candidate_vars = sorted(candidate_vars, key=lambda var: -candidate_vars_areas[var])
 
     # Use sparse heuristic to select args (uncomment to use)
-    krelu_args = sparse_heuristic_with_cutoff(candidate_vars, candidate_vars_areas)
+    KAct_args = sparse_heuristic_with_cutoff(candidate_vars, candidate_vars_areas)
 
     relucons = []
     # print("UBI ",ubi)
@@ -538,49 +560,37 @@ def encode_kactivation_cons(nn, man, element, offset, layerno, length, lbi, ubi,
     if domain == 'refinezono':
         element = dn.add_dimensions(man, element, offset + length, 1)
 
-    # krelu_args = []
-    # if config.dyn_krelu and candidate_vars:
-    #    limit3relucalls = 500
-    #    firstk = math.sqrt(6*limit3relucalls/len(candidate_vars))
-    #    firstk = int(min(firstk, len(candidate_vars)))
-    #    if is_conv and layerno < last_conv:
-    #        firstk = 1
-    #    else:
-    #        firstk = 5#int(max(1,firstk))
-    #    print("firstk ",firstk)
-    #    if firstk>3:
-    #        while candidate_vars:
-    #            headlen = min(firstk, len(candidate_vars))
-    #            head = candidate_vars[:headlen]
-    #            candidate_vars = candidate_vars[headlen:]
-    #            if len(head)<=3:
-    #               krelu_args.append(head)
-    #            else:
-    #                for arg in itertools.combinations(head, 3):
-    #                    krelu_args.append(arg)
+    KAct.man = man
+    KAct.element = element
+    KAct.tdim = tdim
+    KAct.length = length
+    KAct.layerno = layerno
+    KAct.offset = offset
+    KAct.domain = domain
+    KAct.type = activation_type
 
     # klist = ([3] if (config.use_3relu) else []) + ([2] if (config.use_2relu) else []) + [1]
     # for k in klist:
     #    while len(candidate_vars) >= k:
-    #        krelu_args.append(candidate_vars[:k])
+    #        KAct_args.append(candidate_vars[:k])
     #        candidate_vars = candidate_vars[k:]
-    Krelu.man = man
-    Krelu.element = element
-    Krelu.tdim = tdim
-    Krelu.length = length
-    Krelu.layerno = layerno
-    Krelu.offset = offset
-    Krelu.domain = domain
+    #KAct.man = man
+    #KAct.element = element
+    #KAct.tdim = tdim
+    #KAct.length = length
+    #KAct.layerno = layerno
+    #KAct.offset = offset
+    #KAct.domain = domain
 
     start = time.time()
     if domain == 'refinezono':
         with multiprocessing.Pool(config.numproc) as pool:
-            cdd_hrepr_array = pool.map(get_ineqs_zono, krelu_args)
+            cdd_hrepr_array = pool.map(get_ineqs_zono, KAct_args)
     else:
-        #    krelu_results = []
+        #    KAct_results = []
         total_size = 0
         listCoeff = [-2, -1, 0, 1, 2]
-        for varsid in krelu_args:
+        for varsid in KAct_args:
             if len(varsid) == 1:
                 size = len(listCoeff) ** len(varsid) - 1
             else:
@@ -590,7 +600,7 @@ def encode_kactivation_cons(nn, man, element, offset, layerno, length, lbi, ubi,
         linexpr0 = elina_linexpr0_array_alloc(total_size)
         # HERE we should define our expressions
         i = -1
-        for varsid in krelu_args:
+        for varsid in KAct_args:
             for coeffs in itertools.product(listCoeff, repeat=len(varsid)):
                 i = i + 1
                 if len(varsid) == 1:
@@ -607,7 +617,7 @@ def encode_kactivation_cons(nn, man, element, offset, layerno, length, lbi, ubi,
         i = -1
         cdd_hrepr_array = []
         bound_val = []
-        for varsid in krelu_args:
+        for varsid in KAct_args:
             cdd_hrepr = []
             for coeffs in itertools.product(listCoeff, repeat=len(varsid)):
                 i = i + 1
@@ -627,26 +637,26 @@ def encode_kactivation_cons(nn, man, element, offset, layerno, length, lbi, ubi,
             cdd_hrepr_array.append(cdd_hrepr)
 
     with multiprocessing.Pool(config.numproc) as pool:  # here is entering in 'get_orthant_points'
-        krelu_results = pool.map(make_krelu_obj, cdd_hrepr_array)#, lbi, ubi)
+        KAct_results = pool.map(make_KAct_obj, cdd_hrepr_array)#, lbi, ubi)
 
-    #        krelu_results.append(make_krelu_obj(krelu_args[i]))
+    #        KAct_results.append(make_KAct_obj(KAct_args[i]))
     # bound_expr_list = []
     gid = 0
     lower_bound_expr = {}
     upper_bound_expr = {}
-    for krelu_inst in krelu_results:
-        varsid = krelu_args[gid]
-        krelu_inst.varsid = varsid
+    for KAct_inst in KAct_results:
+        varsid = KAct_args[gid]
+        KAct_inst.varsid = varsid
         # For now disabling since in the experiments updating expression bounds makes results worse.
-        # compute_expr_bounds(krelu_inst, varsid, lower_bound_expr, upper_bound_expr, lbi, ubi)
+        # compute_expr_bounds(KAct_inst, varsid, lower_bound_expr, upper_bound_expr, lbi, ubi)
         # print("VARSID ",varsid)
-        # bound_expr_list.append(Krelu_expr(lower_bound_expr, upper_bound_expr, varsid))
-        relucons.append(krelu_inst)
+        # bound_expr_list.append(KAct_expr(lower_bound_expr, upper_bound_expr, varsid))
+        relucons.append(KAct_inst)
         gid = gid + 1
     end = time.time()
 
     if config.debug:
-        print('krelu time spent: ' + str(end - start))
+        print('KAct time spent: ' + str(end - start))
     if domain == 'refinezono':
         element = dn.remove_dimensions(man, element, offset + length, 1)
 

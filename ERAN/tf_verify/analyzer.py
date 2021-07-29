@@ -1,6 +1,19 @@
-'''
-@author: Adrian Hoffmann
-'''
+"""
+  Copyright 2020 ETH Zurich, Secure, Reliable, and Intelligent Systems Lab
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+"""
+
 
 from elina_abstract0 import *
 from elina_manager import *
@@ -27,7 +40,10 @@ class layers:
         self.ffn_counter = 0
         self.conv_counter = 0
         self.residual_counter = 0
+        self.pad_counter = 0
         self.pool_counter = 0
+        self.concat_counter = 0
+        self.tile_counter = 0
         self.activation_counter = 0
         self.specLB = []
         self.specUB = []
@@ -40,7 +56,7 @@ class layers:
         self.prop = -1
 
     def calc_layerno(self):
-        return self.ffn_counter + self.conv_counter + self.residual_counter + self.pool_counter + self.activation_counter
+        return self.ffn_counter + self.conv_counter + self.residual_counter + self.pool_counter + self.activation_counter + self.concat_counter + self.tile_counter +self.pad_counter
 
     def is_ffn(self):
         return not any(x in ['Conv2D', 'Conv2DNoReLU', 'Resadd', 'Resaddnorelu'] for x in self.layertypes)
@@ -58,7 +74,7 @@ class layers:
         self.last_weights = [w/length for w in last_weights]
 
 
-    def back_propagate_gradiant(self, nlb, nub):
+    def back_propagate_gradient(self, nlb, nub):
         #assert self.is_ffn(), 'only supported for FFN'
 
         grad_lower = self.last_weights.copy()
@@ -97,7 +113,9 @@ class layers:
 
 
 class Analyzer:
-    def __init__(self, ir_list, nn, domain, timeout_lp, timeout_milp, output_constraints, use_default_heuristic, label, prop, testing = False):
+    def __init__(self, ir_list, nn, domain, timeout_lp, timeout_milp, output_constraints, use_default_heuristic, label,
+                 prop, testing = False, K=3, s=-2, timeout_final_lp=100, timeout_final_milp=100, use_milp=False,
+                 complete=False, partial_milp=False, max_milp_neurons=30, approx_k=True):
         """
         Arguments
         ---------
@@ -121,13 +139,22 @@ class Analyzer:
         self.nn = nn
         self.timeout_lp = timeout_lp
         self.timeout_milp = timeout_milp
+        self.timeout_final_lp = timeout_final_lp
+        self.timeout_final_milp = timeout_final_milp
+        self.use_milp = use_milp
         self.output_constraints = output_constraints
         self.use_default_heuristic = use_default_heuristic
         self.testing = testing
         self.relu_groups = []
         self.label = label
         self.prop = prop
-    
+        self.complete = complete
+        self.K=K
+        self.s=s
+        self.partial_milp=partial_milp
+        self.max_milp_neurons=max_milp_neurons
+        self.approx_k = approx_k
+
     def __del__(self):
         elina_manager_free(self.man)
         
@@ -141,14 +168,19 @@ class Analyzer:
         nub = []
         testing_nlb = []
         testing_nub = []
-
-        # ir_list are the layers 0=input 1=affine 2=relu 3=affine 4=relu 5=affine 6=relu
-        # depending on the type of node we grt access to a different transformer function
-        # inside transformer we call 'calc_bounds' to create the next domain.
-        # When the input is non-trivial and we have a ReLU node
-        # we can access to 'refine_activation_with_solver_bounds'
         for i in range(1, len(self.ir_list)):
-            element_test_bounds = self.ir_list[i].transformer(self.nn, self.man, element, nlb, nub, self.relu_groups, 'refine' in self.domain, self.timeout_lp, self.timeout_milp, self.use_default_heuristic, self.testing)
+            if type(self.ir_list[i]) in [DeeppolyReluNode,DeeppolySigmoidNode,DeeppolyTanhNode,DeepzonoRelu,DeepzonoSigmoid,DeepzonoTanh]:
+                element_test_bounds = self.ir_list[i].transformer(self.nn, self.man, element, nlb, nub,
+                                                                  self.relu_groups, 'refine' in self.domain,
+                                                                  self.timeout_lp, self.timeout_milp,
+                                                                  self.use_default_heuristic, self.testing,
+                                                                  K=self.K, s=self.s, use_milp=self.use_milp,
+                                                                  approx=self.approx_k)
+            else:
+                element_test_bounds = self.ir_list[i].transformer(self.nn, self.man, element, nlb, nub,
+                                                                  self.relu_groups, 'refine' in self.domain,
+                                                                  self.timeout_lp, self.timeout_milp,
+                                                                  self.use_default_heuristic, self.testing)
 
             if self.testing and isinstance(element_test_bounds, tuple):
                 element, test_lb, test_ub = element_test_bounds
@@ -163,7 +195,7 @@ class Analyzer:
         return element, nlb, nub
     
     
-    def analyze(self):
+    def analyze(self,terminate_on_failure=True):
         """
         analyses the network with the given input
         
@@ -172,17 +204,20 @@ class Analyzer:
         output: int
             index of the dominant class. If no class dominates then returns -1
         """
-
-        # get_abstract0 call the function 'transformer'.
-        # This function is the core of the computation (it calculates bounds and constraints)
-        # NB: I have put a breakpoint just when we use 'refine_activation_with_solver_bounds'
         element, nlb, nub = self.get_abstract0()
-        output_size = 0
+        
+        # if self.domain == "deeppoly" or self.domain == "refinepoly":
+        #     linexprarray = backsubstituted_expr_for_layer(self.man, element, 1, True)
+        #     for neuron in range(1):
+        #         print("******EXPR*****")
+        #         elina_linexpr0_print(linexprarray[neuron],None)
+        #         print()
+        # output_size = 0
         if self.domain == 'deepzono' or self.domain == 'refinezono':
             output_size = self.ir_list[-1].output_length
         else:
             output_size = self.ir_list[-1].output_length#reduce(lambda x,y: x*y, self.ir_list[-1].bias.shape, 1)
-    
+        
         dominant_class = -1
         if(self.domain=='refinepoly'):
 
@@ -190,79 +225,149 @@ class Analyzer:
             self.nn.ffn_counter = 0
             self.nn.conv_counter = 0
             self.nn.pool_counter = 0
+            self.nn.pad_counter = 0
+            self.nn.concat_counter = 0
+            self.nn.tile_counter = 0
             self.nn.residual_counter = 0
             self.nn.activation_counter = 0
-            counter, var_list, model = create_model(self.nn, self.nn.specLB, self.nn.specUB, nlb, nub,self.relu_groups, self.nn.numlayer, config.complete==True)
-            if config.complete==True:
-                model.setParam(GRB.Param.TimeLimit,self.timeout_milp)
+            counter, var_list, model = create_model(self.nn, self.nn.specLB, self.nn.specUB, nlb, nub, self.relu_groups, self.nn.numlayer, self.complete)
+            if self.partial_milp != 0:
+                self.nn.ffn_counter = 0
+                self.nn.conv_counter = 0
+                self.nn.pool_counter = 0
+                self.nn.pad_counter = 0
+                self.nn.concat_counter = 0
+                self.nn.tile_counter = 0
+                self.nn.residual_counter = 0
+                self.nn.activation_counter = 0
+                counter_partial_milp, var_list_partial_milp, model_partial_milp = create_model(self.nn, self.nn.specLB,
+                                                                                               self.nn.specUB, nlb, nub,
+                                                                                               self.relu_groups,
+                                                                                               self.nn.numlayer,
+                                                                                               self.complete,
+                                                                                               partial_milp=self.partial_milp,
+                                                                                               max_milp_neurons=self.max_milp_neurons)
+                model_partial_milp.setParam(GRB.Param.TimeLimit, self.timeout_final_milp)
+
+            if self.complete:
+                model.setParam(GRB.Param.TimeLimit, self.timeout_final_milp)
             else:
-                model.setParam(GRB.Param.TimeLimit,self.timeout_lp)
+                model.setParam(GRB.Param.TimeLimit, self.timeout_final_lp)
+
+            model.setParam(GRB.Param.Cutoff, 0.01)
+
             num_var = len(var_list)
             output_size = num_var - counter
 
         label_failed = []
         x = None
         if self.output_constraints is None:
+            
             candidate_labels = []
             if self.label == -1:
                 for i in range(output_size):
                     candidate_labels.append(i)
             else:
                 candidate_labels.append(self.label)
+
             adv_labels = []
             if self.prop == -1:
                 for i in range(output_size):
                     adv_labels.append(i)
             else:
                 adv_labels.append(self.prop)   
-            for i in candidate_labels:
-                flag = True
-                label = i
-                for j in adv_labels:
-                    if self.domain == 'deepzono' or self.domain == 'refinezono':
-                        if i!=j and not self.is_greater(self.man, element, i, j):
-                            flag = False
-                            break
-                    else:
-                        if label!=j and not self.is_greater(self.man, element, label, j, self.use_default_heuristic):
 
+            for label in candidate_labels:
+                flag = True
+                for adv_label in adv_labels:
+                    if self.domain == 'deepzono' or self.domain == 'refinezono':
+                        if label == adv_label:
+                            continue
+                        elif self.is_greater(self.man, element, label, adv_label):
+                            continue
+                        else:
+                            flag = False
+                            label_failed.append(adv_label)
+                            if terminate_on_failure:
+                                break
+                    else:
+                        if label == adv_label:
+                            continue
+                        elif self.is_greater(self.man, element, label, adv_label, self.use_default_heuristic):
+                            continue
+                        else:
                             if(self.domain=='refinepoly'):
                                 obj = LinExpr()
-                                obj += 1*var_list[counter+label]
-                                obj += -1*var_list[counter + j]
-                                model.setObjective(obj,GRB.MINIMIZE)
-                                if config.complete == True:
+                                obj += 1 * var_list[counter + label]
+                                obj += -1 * var_list[counter + adv_label]
+                                model.setObjective(obj, GRB.MINIMIZE)
+                                if self.complete:
                                     model.optimize(milp_callback)
-                                    if model.objbound <= 0:
+                                    if not hasattr(model,"objbound") or model.objbound <= 0:
                                         flag = False
-                                        if self.label!=-1:
-                                            label_failed.append(j)
+                                        if self.label != -1:
+                                            label_failed.append(adv_label)
                                         if model.solcount > 0:
                                             x = model.x[0:len(self.nn.specLB)]
-                                        break    
+                                        if terminate_on_failure:
+                                            break
                                 else:
-                                    model.optimize()
-                                    if model.Status!=2:
+                                    model.optimize(lp_callback)
+                                    # model.optimize()
+                                    # if model.Status == 11:
+                                    #     model.optimize() #very rarely lp_callback seems to leave model in interrupted state
+
+                                    try:
+                                        print(
+                                            f"Model status: {model.Status}, Objval against label {adv_label}: {model.objval:.4f}, Final solve time: {model.Runtime:.3f}")
+                                    except:
+                                        print(
+                                            f"Model status: {model.Status}, Objval retrival failed, Final solve time: {model.Runtime:.3f}")
+
+                                    if model.Status == 6 or (model.Status == 2 and model.objval > 0):
+                                        # Cutoff active, or optimal with positive objective => sound against adv_label
+                                        pass
+                                    elif self.partial_milp != 0:
+                                        obj = LinExpr()
+                                        obj += 1 * var_list_partial_milp[counter_partial_milp + label]
+                                        obj += -1 * var_list_partial_milp[counter_partial_milp + adv_label]
+                                        model_partial_milp.setObjective(obj, GRB.MINIMIZE)
+                                        model_partial_milp.optimize(milp_callback)
+                                        try:
+                                            print(
+                                                f"Partial MILP model status: {model_partial_milp.Status}, Objbound against label {adv_label}: {model_partial_milp.ObjBound:.4f}, Final solve time: {model_partial_milp.Runtime:.3f}")
+                                        except:
+                                            print(
+                                                f"Partial MILP model status: {model_partial_milp.Status}, Objbound retrival failed, Final solve time: {model_partial_milp.Runtime:.3f}")
+
+                                        if model_partial_milp.Status in [2,9,11] and model_partial_milp.ObjBound > 0:
+                                            pass
+                                        elif model_partial_milp.Status not in [2,9,11]:
+                                            print("Partial milp model was not successful status is", model_partial_milp.Status)
+                                            model_partial_milp.write("final.mps")
+                                            flag = False
+                                        else:
+                                            flag = False
+                                    elif model.Status != 2:
+                                        print("Model was not successful status is",
+                                              model.Status)
                                         model.write("final.mps")
                                         flag = False
-                                        break
-                                    elif model.objval < 0:
-                               
+                                    else:
                                         flag = False
+                                    if flag and model.Status==2 and model.objval < 0:
                                         if model.objval != math.inf:
                                             x = model.x[0:len(self.nn.specLB)]
-                                        break
 
                             else:
                                 flag = False
-                                if self.label!=-1:
-                                    label_failed.append(j)
-                                if config.complete == False:
-                                    break
-
-
+                    if not flag:
+                        if terminate_on_failure:
+                            break
+                        elif self.label != -1:
+                            label_failed.append(adv_label)
                 if flag:
-                    dominant_class = i
+                    dominant_class = label
                     break
         else:
             # AND
@@ -273,7 +378,7 @@ class Analyzer:
                 
                 for is_greater_tuple in or_list:
                     if is_greater_tuple[1] == -1:
-                        if nub[-1][is_greater_tuple[0]] <= float(is_greater_tuple[2]):
+                        if nub[-1][is_greater_tuple[0]] < float(is_greater_tuple[2]):
                             or_result = True
                             break
                     else: 
